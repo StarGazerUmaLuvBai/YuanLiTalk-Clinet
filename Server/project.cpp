@@ -39,10 +39,8 @@ string random_str(int n = 50) {
 
 namespace UserOperation {
   json u_register(const json& user_request) {
-    // sqlite3_stmt* stmt;
     const string username = user_request["username"];
     const string password = md5_hash_hex(user_request["password"]);
-
     PreparedStatement stmt(db, "select max(uid) from user;");
 
     stmt.bind_value(1, username);
@@ -68,34 +66,55 @@ namespace UserOperation {
     }
   }
   json u_login(const json& user_request) {
-    const string username = user_request["username"];
-    const string password = md5_hash_hex(user_request["password"]);
-    PreparedStatement query_stmt(db, "SELECT username, password FROM user where username=?;");
-    query_stmt.bind_value(1, username);
-    int res;
-    res = query_stmt.step();
-
-    if (res != SQLITE_ROW) {
-      return json({ { "status",YUANLITALK_FAILURE } });
-    }
-    string password_in_db = query_stmt.get_result_string(1);
-    if (password_in_db != password) {
-      return json({ { "status",YUANLITALK_FAILURE } });
+    // 有两种登录方式，一种是用密码登录，一种是用token登录（记住密码）
+    const int uid = user_request["uid"];
+    const string password = user_request.count("password") ? md5_hash_hex(user_request["password"]) : "";
+    const string token = user_request.count("token") ? md5_hash_hex(user_request["token"]) : "";
+    const string uuid = user_request["uuid"];
+    if (password != "") {
+      // 密码登录
+      PreparedStatement query_stmt(db, "SELECT * FROM user where uid = ? and password = ?;");
+      query_stmt.bind_value(1, uid);
+      query_stmt.bind_value(2, password);
+      int res;
+      res = query_stmt.step();
+      if (res != SQLITE_ROW) {
+        return json({ { "status",YUANLITALK_FAILURE } });
+      }
     }
     else {
-      string token = random_str();
-      PreparedStatement update_stmt(db, "UPDATE user SET token = ? WHERE username = ?;");
+      PreparedStatement query_stmt(db, "SELECT * FROM user_device where uid = ? AND uuid = ? AND token = ?;");
+      query_stmt.bind_value(1, uid);
+      query_stmt.bind_value(2, uuid);
+      query_stmt.bind_value(3, token);
+      int res;
+      res = query_stmt.step();
+      if (res != SQLITE_ROW) {
+        return json({ { "status",YUANLITALK_FAILURE } });
+      }
+    }
 
-      update_stmt.bind_value(1, token);
-      update_stmt.bind_value(2, username);
 
-      res = update_stmt.step();
+    if (token == "") {
+      string new_token = random_str();
+      PreparedStatement update_stmt(db, "UPDATE user_device SET token = ? WHERE uid = ? AND uuid = ?;");
+
+      update_stmt.bind_value(1, new_token);
+      update_stmt.bind_value(2, uid);
+      update_stmt.bind_value(3, uuid);
+
+      int res = update_stmt.step();
       if (res != SQLITE_DONE) {
         return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
       }
-      printf("token=%s\n", token.c_str());
+      return json({ { "status",YUANLITALK_SUCCESS },{"token",new_token} });
+    }
+    else {
+      
       return json({ { "status",YUANLITALK_SUCCESS },{"token",token} });
     }
+
+
   }
 
   json u_sendMessage(const json& user_request) {
