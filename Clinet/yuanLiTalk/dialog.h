@@ -3,6 +3,7 @@
 
 #include "all.h"
 #include "register.h"
+#include "mainwindow.h"
 
 namespace Ui {
 class Dialog;

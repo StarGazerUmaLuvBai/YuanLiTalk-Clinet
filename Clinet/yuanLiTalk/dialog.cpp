@@ -26,7 +26,7 @@ void Dialog::on_pushButton_clicked()
         QMessageBox::warning(this,"输入错误","请输入密码");
     }
     else {
-        clinet->connectToHost("173.82.246.214",10086);
+        clinet->connectToHost("173.82.246.214",10086);  //173.82.246.214
         connect(clinet,SIGNAL(connected()),this,SLOT(hadConnected()));
     }
 }
@@ -82,6 +82,10 @@ void Dialog::hadReadyRead(){
             else {
                 QMessageBox::information(this,"登录成功","欢迎使用猿理Talk!");
                 //TODO:登录成功后接MainWindow
+                MainWindow *mWindow = new MainWindow(clinet);
+                disconnect(clinet,0,this,0);
+                mWindow->show();
+                this->hide();
             }
         //}
     }

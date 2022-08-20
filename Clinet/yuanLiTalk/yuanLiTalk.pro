@@ -25,11 +25,26 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += main.cpp\
         dialog.cpp \
-    register.cpp
+    register.cpp \
+    mainwindow.cpp \
+    information.cpp \
+    file.cpp \
+    talk.cpp \
+    password_change.cpp
 
 HEADERS  += dialog.h \
     register.h \
-    all.h
+    all.h \
+    mainwindow.h \
+    information.h \
+    file.h \
+    talk.h \
+    password_change.h
 
 FORMS    += dialog.ui \
-    register.ui
+    register.ui \
+    mainwindow.ui \
+    information.ui \
+    file.ui \
+    talk.ui \
+    password_change.ui

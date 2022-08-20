@@ -34,7 +34,7 @@ void Register::on_pushButton_clicked()
         ui->lineEdit_3->clear();
     }
     else {
-        clinet->connectToHost("173.82.246.214",10086);
+        clinet->connectToHost("173.82.246.214",10086);  //173.82.246.214
         connect(clinet,SIGNAL(connected()),this,SLOT(hadConnected()));
     }
 }
@@ -89,7 +89,9 @@ void Register::hadReadyRead(){
                 return ;
             }
             else {
-                QMessageBox::information(this,"注册成功","欢迎来到猿理Talk!");
+                int uid = jsonObject["uid"].toInt();
+                QString msg = "您的uid是:"+QString::number(uid)+"\n欢迎来到猿理Talk!";
+                QMessageBox::information(this,"注册成功",msg);
                 Dialog * login = new Dialog;
                 login->show();
                 this->hide();
