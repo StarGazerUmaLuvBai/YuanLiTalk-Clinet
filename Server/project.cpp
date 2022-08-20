@@ -8,8 +8,8 @@
 #include "json.hpp"
 #include "md5.hpp"
 #include "sqliteoo.hpp"
-#define APETALK_SUCCESS 0
-#define APETALK_ERROR   1
+#define YUANLITALK_SUCCESS 0
+#define YUANLITALK_ERROR   1
 
 using namespace std;
 using json = nlohmann::json;
@@ -37,75 +37,71 @@ string random_str(int n = 50) {
 }
 
 namespace UserOperation {
-  json u_register(json* user_request) {
+  json u_register(const json& user_request) {
     // sqlite3_stmt* stmt;
-    const string username = user_request->at("username");
-    const string password = md5_hash_hex(user_request->at("password"));
+    const string username = user_request["username"];
+    const string password = md5_hash_hex(user_request["password"]);
+    const string nickname = user_request.count("nickname") ? user_request["nickname"] : "";
 
-    // sqlite3_prepare_v2(db, "SELECT * FROM user where username=?;", -1, &stmt, NULL);
     PreparedStatement stmt(db, "SELECT * FROM user where username=?;");
-    //sqlite3_bind_text(stmt, 1, username.c_str(), -1, NULL);
+
     stmt.bind_value(1, username);
 
     int res;
     res = stmt.step();
-    // sqlite3_finalize(stmt);
     if (res == SQLITE_ROW) {
-      return json({ { "status",APETALK_ERROR }, { "massage","用户已存在" } });
+      return json({ { "status",YUANLITALK_ERROR }, { "massage","用户已存在" } });
     }
-    // sqlite3_prepare_v2(db, "INSERT INTO user (username, password) VALUES(?,?);", -1, &stmt, NULL);
-    // sqlite3_bind_text(stmt, 1, username.c_str(), -1, NULL);
-    // sqlite3_bind_text(stmt, 2, password.c_str(), -1, NULL);
-    // res = sqlite3_step(stmt);
-    // sqlite3_finalize(stmt);
 
-    PreparedStatement insert_user_stmt(db, "INSERT INTO user (username, password) VALUES(?,?);");
+
+    PreparedStatement insert_user_stmt(db, "INSERT INTO user (username, password, nickname) VALUES(?,?,?);");
     insert_user_stmt.bind_value(1, username);
     insert_user_stmt.bind_value(2, password);
+    insert_user_stmt.bind_value(3, nickname);
 
     res = insert_user_stmt.step();
     if (res == SQLITE_DONE) {
-      return json({ { "status",APETALK_SUCCESS }, { "massage","创建成功" } });
+      return json({ { "status",YUANLITALK_SUCCESS }, { "massage","创建成功" } });
     }
     else {
-      return json({ { "status",APETALK_ERROR }, { "massage","系统错误，创建失败" } });
+      return json({ { "status",YUANLITALK_ERROR }, { "massage","系统错误，创建失败" } });
     }
   }
-  json u_log_in(json* user_request) {
-    // sqlite3_stmt* stmt;
-    const string username = user_request->at("username");
-    const string password = md5_hash_hex(user_request->at("password"));
-    // sqlite3_prepare_v2(db, "SELECT username, password FROM user where username=?;", -1, &stmt, NULL);
-    // sqlite3_bind_text(stmt, 1, username.c_str(), -1, NULL);
+  json u_login(const json& user_request) {
+    const string username = user_request["username"];
+    const string password = md5_hash_hex(user_request["password"]);
     PreparedStatement query_stmt(db, "SELECT username, password FROM user where username=?;");
     query_stmt.bind_value(1, username);
     int res;
     res = query_stmt.step();
 
     if (res != SQLITE_ROW) {
-      return json({ { "status",APETALK_ERROR }, { "massage","用户不存在或密码错误" } });
+      return json({ { "status",YUANLITALK_ERROR }, { "massage","用户不存在或密码错误" } });
     }
     string password_in_db = query_stmt.get_result_string(1);
     if (password_in_db != password) {
-      return json({ { "status",APETALK_ERROR }, { "massage","用户不存在或密码错误" } });
+      return json({ { "status",YUANLITALK_ERROR }, { "massage","用户不存在或密码错误" } });
     }
     else {
       string token = random_str();
-      PreparedStatement update_stmt(db, "UPDATE user SET token = ? WHERE username=?;");
-      // sqlite3_prepare_v2(db, "UPDATE user SET token = ? WHERE username=?;", -1, &stmt, NULL);
-      // sqlite3_bind_text(stmt, 1, token.c_str(), -1, NULL);
-      // sqlite3_bind_text(stmt, 2, username.c_str(), -1, NULL);
+      PreparedStatement update_stmt(db, "UPDATE user SET token = ? WHERE username = ?;");
+
       update_stmt.bind_value(1, token);
       update_stmt.bind_value(2, username);
 
       res = update_stmt.step();
       if (res != SQLITE_DONE) {
-        return json({ { "status",APETALK_ERROR }, { "massage","系统错误" } });
+        return json({ { "status",YUANLITALK_ERROR }, { "massage","系统错误" } });
       }
       printf("token=%s\n", token.c_str());
-      return json({ { "status",APETALK_SUCCESS }, { "massage","登录成功" },{"token",token} });
+      return json({ { "status",YUANLITALK_SUCCESS }, { "massage","登录成功" },{"token",token} });
     }
   }
+
+  json u_sendMessage(const json& user_request) {
+
+  }
+
 };
 void clientListener(int cfd, sockaddr_in* caddr) {
   // 管理与每个客户端的连接
@@ -123,18 +119,27 @@ void clientListener(int cfd, sockaddr_in* caddr) {
       buff[len] = '\0';
       printf("client %s say: %s\n", ip, buff);
       printf("before parse %s\n", buff);
-      json* user_request = new json(json::parse(buff));
+      json user_request;
+      try {
+        user_request = json::parse(buff);
+      }
+      catch (json::parse_error& e) {
+        // output exception information
+        printf("message: %s\n", e.what());
+        printf("exception id: %d\n", e.id);
+        printf("byte position of error:  %d\n", (int)e.byte);
+        continue;
+      }
+
       printf("after parse\n");
       string res;
-      if (user_request->at("operation").get<string>() == "register") {
+      if (user_request["operation"].get<string>() == "register") {
         res = UserOperation::u_register(user_request).dump();
       }
-      else if (user_request->at("operation").get<string>() == "login") {
-        res = UserOperation::u_log_in(user_request).dump();
+      else if (user_request["operation"].get<string>() == "login") {
+        res = UserOperation::u_login(user_request).dump();
       }
-      // sprintf(buff, "用户名：%s 密码：%s", test["username"].get<string>().c_str(), test["password"].get<string>().c_str());
       send(cfd, res.c_str(), res.length(), 0);
-      delete user_request;
     }
     else if (len == 0) {
       printf("客户端%s:%d断开连接\n", ip, port);
@@ -145,7 +150,6 @@ void clientListener(int cfd, sockaddr_in* caddr) {
       break;
     }
   }
-
 }
 
 void globalListener() {
