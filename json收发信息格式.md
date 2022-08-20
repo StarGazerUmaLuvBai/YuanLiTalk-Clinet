@@ -4,7 +4,6 @@
 #define YUANLITALK_SUCCESS              0
 #define YUANLITALK_FAILURE              1
 #define YUANLITALK_SYSTEM_ERROR         2
-#define YUANLITALK_REGISTER_USER_EXIST  3
 ```
 
 # 客户端
@@ -44,7 +43,6 @@
 ### status
 
 + `YUANLITALK_SUCCESS`：成功
-+ `YUANLITALK_REGISTER_USER_EXIST`：用户存在
 + `YUANLITALK_SYSTEM_ERROR`：系统错误
 
 ### uid
@@ -68,3 +66,5 @@
 ### token
 
 一个随机字符串，免密登陆的凭证。
+
+当且仅当status为`YUANLITALK_SUCCESS`时存在。

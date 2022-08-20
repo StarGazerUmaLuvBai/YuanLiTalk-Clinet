@@ -11,7 +11,6 @@
 #define YUANLITALK_SUCCESS              0
 #define YUANLITALK_FAILURE              1
 #define YUANLITALK_SYSTEM_ERROR         2
-#define YUANLITALK_REGISTER_USER_EXIST  3
 
 using namespace std;
 using json = nlohmann::json;
@@ -43,30 +42,29 @@ namespace UserOperation {
     // sqlite3_stmt* stmt;
     const string username = user_request["username"];
     const string password = md5_hash_hex(user_request["password"]);
-    const string nickname = user_request.count("nickname") ? user_request["nickname"] : "";
 
-    PreparedStatement stmt(db, "SELECT * FROM user where username=?;");
+    PreparedStatement stmt(db, "select max(uid) from user;");
 
     stmt.bind_value(1, username);
 
     int res;
     res = stmt.step();
-    if (res == SQLITE_ROW) {
-      return json({ { "status",YUANLITALK_REGISTER_USER_EXIST }, { "massage","用户已存在" } });
+    if (res != SQLITE_ROW && res != SQLITE_DONE) {
+      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
     }
+    int uid = res == SQLITE_ROW ? stmt.get_result_int(0) : 100000 + 1;
 
-
-    PreparedStatement insert_user_stmt(db, "INSERT INTO user (username, password, nickname) VALUES(?,?,?);");
-    insert_user_stmt.bind_value(1, username);
-    insert_user_stmt.bind_value(2, password);
-    insert_user_stmt.bind_value(3, nickname);
+    PreparedStatement insert_user_stmt(db, "INSERT INTO user (uid,username, password) VALUES(?,?,?);");
+    insert_user_stmt.bind_value(1, uid);
+    insert_user_stmt.bind_value(2, username);
+    insert_user_stmt.bind_value(3, password);
 
     res = insert_user_stmt.step();
     if (res == SQLITE_DONE) {
-      return json({ { "status",YUANLITALK_SUCCESS }, { "massage","创建成功" } });
+      return json({ { "status",YUANLITALK_SUCCESS },{"uid",uid} });
     }
     else {
-      return json({ { "status",YUANLITALK_SYSTEM_ERROR }, { "massage","系统错误，创建失败" } });
+      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
     }
   }
   json u_login(const json& user_request) {
@@ -78,11 +76,11 @@ namespace UserOperation {
     res = query_stmt.step();
 
     if (res != SQLITE_ROW) {
-      return json({ { "status",YUANLITALK_FAILURE }, { "massage","用户不存在或密码错误" } });
+      return json({ { "status",YUANLITALK_FAILURE } });
     }
     string password_in_db = query_stmt.get_result_string(1);
     if (password_in_db != password) {
-      return json({ { "status",YUANLITALK_FAILURE }, { "massage","用户不存在或密码错误" } });
+      return json({ { "status",YUANLITALK_FAILURE } });
     }
     else {
       string token = random_str();
@@ -93,10 +91,10 @@ namespace UserOperation {
 
       res = update_stmt.step();
       if (res != SQLITE_DONE) {
-        return json({ { "status",YUANLITALK_SYSTEM_ERROR }, { "massage","系统错误" } });
+        return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
       }
       printf("token=%s\n", token.c_str());
-      return json({ { "status",YUANLITALK_SUCCESS }, { "massage","登录成功" },{"token",token} });
+      return json({ { "status",YUANLITALK_SUCCESS },{"token",token} });
     }
   }
 
