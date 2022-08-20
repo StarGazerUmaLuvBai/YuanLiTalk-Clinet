@@ -50,10 +50,30 @@ void Dialog::hadConnected(){
       "password":""
     }
     */
+
+    //唯一标识码
+    QString cmdstr = "wmic csproduct get uuid";
+    QProcess myp;
+    myp.start(cmdstr);
+    myp.waitForFinished();
+
+    QString uuidInfo = myp.readAllStandardOutput();
+    myp.kill();
+    myp.close();
+
+    QStringList ulist = uuidInfo.split(" ");
+
+    uuidInfo.remove(ulist.first(),Qt::CaseInsensitive);
+    uuidInfo.remove(ulist.last());
+    uuidInfo.replace("\r", "");
+    uuidInfo.replace("\n", "");
+    uuidInfo.remove(" ");
+
     QString data =
             "{\"operation\" : \"login\", \"username\" : \"" +
             uname + "\",\"password\" : \"" +
-            passWord + "\"}";
+            passWord + "\",\"uuid\" : \"" +
+            uuidInfo + "\"}";
     clinet->write(data.toUtf8());
     connect(clinet,SIGNAL(readyRead()),this,SLOT(hadReadyRead()));
 }
@@ -81,10 +101,11 @@ void Dialog::hadReadyRead(){
             }
             else {
                 QMessageBox::information(this,"登录成功","欢迎使用猿理Talk!");
-                //TODO:登录成功后接MainWindow
+                //登录成功后接MainWindow
                 MainWindow *mWindow = new MainWindow(clinet);
                 disconnect(clinet,0,this,0);
                 mWindow->show();
+
                 this->hide();
             }
         //}

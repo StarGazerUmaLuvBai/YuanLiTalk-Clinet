@@ -1,0 +1,17 @@
+INPUT(
+./debug/main.o
+./debug/dialog.o
+./debug/register.o
+./debug/mainwindow.o
+./debug/information.o
+./debug/file.o
+./debug/talk.o
+./debug/password_change.o
+./debug/moc_dialog.o
+./debug/moc_register.o
+./debug/moc_mainwindow.o
+./debug/moc_information.o
+./debug/moc_file.o
+./debug/moc_talk.o
+./debug/moc_password_change.o
+);
