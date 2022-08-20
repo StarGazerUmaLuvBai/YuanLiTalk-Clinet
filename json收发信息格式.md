@@ -24,14 +24,38 @@
 ```json
 {
   "operation":"login",
-  "uid":"张三",
-  "password":"123456"
+  "uid":100000,
+  "password":"123456",
+  "uuid":"F6C2CCFB-DD10-11EA-80DE-5405DB150132"
+}
+```
+或
+```json
+{
+  "operation":"login",
+  "uid":100000,
+  "token":"h-%+*592j||q5XL}X,[wPAN0t.XBtS0T:$!JiT}v%^zY(fv,Oj|",
+  "uuid":"F6C2CCFB-DD10-11EA-80DE-5405DB150132"
+}
+```
+### uuid
+
+登录设备的uuid
+
+## sendMessage
+
+```json
+{
+  "operation":"sendMessage",
+  "senderUid":100000,
+  "receiverUid":100001,
+  "message":"hello world"
 }
 ```
 
 # 服务端
 
-## register_result
+## registerResult
 
 ```json
 {
@@ -49,7 +73,7 @@
 
 用户的唯一身份标识。
 
-## login_result
+## loginResult
 
 ```json
 {
@@ -67,4 +91,16 @@
 
 一个随机字符串，免密登陆的凭证。
 
-当且仅当status为`YUANLITALK_SUCCESS`时存在。
+当且仅当status为`YUANLITALK_SUCCESS`且使用密码登录时存在。
+
+## sendMessageResult
+
+```json
+{
+  "status":0
+}
+```
+### status
+
++ `YUANLITALK_SUCCESS`：发送成功
++ `YUANLITALK_FAILURE`：发送失败
