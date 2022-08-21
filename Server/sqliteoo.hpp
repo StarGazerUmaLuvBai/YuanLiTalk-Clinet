@@ -11,6 +11,7 @@ private:
 public:
   // SQLiteDB();
   SQLiteDB(const std::string& db_name);
+  SQLiteDB(const SQLiteDB&) = delete;
   ~SQLiteDB();
   // void open(const std::string& db_name);
   // void close();
@@ -28,6 +29,7 @@ public:
   ~PreparedStatement();
   void bind_value(int index, const std::string& value);
   void bind_value(int index, const int& value);
+  void bind_value(int index, const long long& value);
   void bind_value(int index, const double& value);
 
   int step();
@@ -89,8 +91,11 @@ void PreparedStatement::bind_value(int index, const std::string& value) {
 void PreparedStatement::bind_value(int index, const int& value) {
   sqlite3_bind_int(stmt, index, value);
 }
+void PreparedStatement::bind_value(int index, const long long& value) {
+  sqlite3_bind_int64(stmt, index, value);
+}
 void PreparedStatement::bind_value(int index, const double& value) {
-  sqlite3_bind_int(stmt, index, value);
+  sqlite3_bind_double(stmt, index, value);
 }
 int PreparedStatement::step() {
   return last_exec_code = sqlite3_step(stmt);

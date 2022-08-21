@@ -4,6 +4,7 @@
 #define YUANLITALK_SUCCESS              0
 #define YUANLITALK_FAILURE              1
 #define YUANLITALK_SYSTEM_ERROR         2
+#define YUANLITALK_WRONG_TOKEN          3
 ```
 
 # 客户端
@@ -49,7 +50,9 @@
   "operation":"sendMessage",
   "senderUid":100000,
   "receiverUid":100001,
-  "message":"hello world"
+  "message":"hello world",
+  "token":"h-%+*592j||q5XL}X,[wPAN0t.XBtS0T:$!JiT}v%^zY(fv,Oj|",
+  "uuid":"F6C2CCFB-DD10-11EA-80DE-5405DB150132"
 }
 ```
 

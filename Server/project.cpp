@@ -8,126 +8,19 @@
 #include "json.hpp"
 #include "md5.hpp"
 #include "sqliteoo.hpp"
-#define YUANLITALK_SUCCESS              0
-#define YUANLITALK_FAILURE              1
-#define YUANLITALK_SYSTEM_ERROR         2
+#include "socketoo.hpp"
 
 using namespace std;
 using json = nlohmann::json;
 using websocketpp::md5::md5_hash_hex;
-SQLiteDB db("project.db");
-
-char random_string_source[95] = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
-
-template <class T>
-T randint(T l, T r = 0) {
-  static mt19937 eng(time(NULL));
-  if (l > r)
-    swap(l, r);
-  uniform_int_distribution<T> dis(l, r);
-  return dis(eng);
-}
 
 
-string random_str(int n = 50) {
-  string s = "";
-  for (int i = 0;i < n;++i) {
-    s += random_string_source[randint(0, 93)];
-  }
-  return s;
-}
-
-namespace UserOperation {
-  json u_register(const json& user_request) {
-    const string username = user_request["username"];
-    const string password = md5_hash_hex(user_request["password"]);
-    PreparedStatement stmt(db, "select max(uid) from user;");
-
-    stmt.bind_value(1, username);
-
-    int res;
-    res = stmt.step();
-    if (res != SQLITE_ROW && res != SQLITE_DONE) {
-      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
-    }
-    int uid = res == SQLITE_ROW ? stmt.get_result_int(0) : 100000 + 1;
-
-    PreparedStatement insert_user_stmt(db, "INSERT INTO user (uid,username, password) VALUES(?,?,?);");
-    insert_user_stmt.bind_value(1, uid);
-    insert_user_stmt.bind_value(2, username);
-    insert_user_stmt.bind_value(3, password);
-
-    res = insert_user_stmt.step();
-    if (res == SQLITE_DONE) {
-      return json({ { "status",YUANLITALK_SUCCESS },{"uid",uid} });
-    }
-    else {
-      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
-    }
-  }
-  json u_login(const json& user_request) {
-    // 有两种登录方式，一种是用密码登录，一种是用token登录（记住密码）
-    const int uid = user_request["uid"];
-    const string password = user_request.count("password") ? md5_hash_hex(user_request["password"]) : "";
-    const string token = user_request.count("token") ? md5_hash_hex(user_request["token"]) : "";
-    const string uuid = user_request["uuid"];
-    if (password != "") {
-      // 密码登录
-      PreparedStatement query_stmt(db, "SELECT * FROM user where uid = ? and password = ?;");
-      query_stmt.bind_value(1, uid);
-      query_stmt.bind_value(2, password);
-      int res;
-      res = query_stmt.step();
-      if (res != SQLITE_ROW) {
-        return json({ { "status",YUANLITALK_FAILURE } });
-      }
-    }
-    else {
-      PreparedStatement query_stmt(db, "SELECT * FROM user_device where uid = ? AND uuid = ? AND token = ?;");
-      query_stmt.bind_value(1, uid);
-      query_stmt.bind_value(2, uuid);
-      query_stmt.bind_value(3, token);
-      int res;
-      res = query_stmt.step();
-      if (res != SQLITE_ROW) {
-        return json({ { "status",YUANLITALK_FAILURE } });
-      }
-    }
-
-
-    if (token == "") {
-      string new_token = random_str();
-      PreparedStatement update_stmt(db, "UPDATE user_device SET token = ? WHERE uid = ? AND uuid = ?;");
-
-      update_stmt.bind_value(1, new_token);
-      update_stmt.bind_value(2, uid);
-      update_stmt.bind_value(3, uuid);
-
-      int res = update_stmt.step();
-      if (res != SQLITE_DONE) {
-        return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
-      }
-      return json({ { "status",YUANLITALK_SUCCESS },{"token",new_token} });
-    }
-    else {
-      
-      return json({ { "status",YUANLITALK_SUCCESS },{"token",token} });
-    }
-
-
-  }
-
-  json u_sendMessage(const json& user_request) {
-
-  }
-
-};
-void clientListener(int cfd, sockaddr_in* caddr) {
+void clientListener(int cfd, sockaddr_in caddr) {
   // 管理与每个客户端的连接
 
   char ip[32];
-  int port = ntohs(caddr->sin_port);
-  inet_ntop(AF_INET, &caddr->sin_addr.s_addr, ip, sizeof(ip));
+  int port = ntohs(caddr.sin_port);
+  inet_ntop(AF_INET, &caddr.sin_addr.s_addr, ip, sizeof(ip));
   printf("客户端的IP:%s:%d已成功连接\n", ip, port);
   char buff[1024];
   while (true) {
@@ -170,52 +63,24 @@ void clientListener(int cfd, sockaddr_in* caddr) {
     }
   }
 }
-
 void globalListener() {
-
-  // 监听客户端连接，每个客户连接开一个线程
-
-  // int res = sqlite3_open("project.db", &db);
-  // if (res != SQLITE_OK) {
-  //   printf("数据库连接失败\n");
-  //   pthread_exit(NULL);
-  // }
-
-  int fd = socket(AF_INET, SOCK_STREAM, 0);
-  if (fd == -1) {
-    perror("socket没有成功建立");
-    return;
-  }
-  sockaddr_in saddr;
-  saddr.sin_family = AF_INET;
-  saddr.sin_port = htons(10086);
-  saddr.sin_addr.s_addr = INADDR_ANY;
-  int ret = bind(fd, (sockaddr*)&saddr, sizeof(saddr));
-  if (ret == -1) {
-    perror("fail to bind");
-    return;
-  }
-  ret = listen(fd, 128);
-  if (ret == -1) {
-    perror("fail to listen");
-    return;
-  }
-  while (true) {
-    sockaddr_in* caddr = new sockaddr_in;
-    socklen_t addrlen = sizeof(sockaddr_in);
-    int cfd = accept(fd, (sockaddr*)caddr, &addrlen);
-    if (cfd == -1) {
-      printf("fail to accept\n");
-      continue;
+  try {
+    // 监听客户端连接，每个客户连接开一个线程
+    SocketObject globalSocket(10086);
+    while (true) {
+      Client* temp = new Client(globalSocket.accept());
     }
-    thread thr(clientListener, cfd, caddr);
-    thr.detach();
+  }
+  catch (char const* e) {
+    printf("%s\n", e);
   }
 
-  close(fd);
+
 }
 int main() {
+
   thread gbListener(globalListener);
   gbListener.detach();
   pthread_exit(NULL);
+
 }
