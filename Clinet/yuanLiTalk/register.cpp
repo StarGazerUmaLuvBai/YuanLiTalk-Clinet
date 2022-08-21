@@ -34,7 +34,7 @@ void Register::on_pushButton_clicked()
         ui->lineEdit_3->clear();
     }
     else {
-        clinet->connectToHost("173.82.246.214",10086);  //173.82.246.214
+        clinet->connectToHost("192.168.1.107",10086);  //173.82.246.214
         connect(clinet,SIGNAL(connected()),this,SLOT(hadConnected()));
     }
 }

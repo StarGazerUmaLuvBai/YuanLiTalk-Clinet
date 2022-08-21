@@ -22,6 +22,7 @@ private slots:
 
     void on_yes_clicked();
 
+    void RecStatus(int);
 private:
     Ui::password_change *ui;
     QTcpSocket *clinet;

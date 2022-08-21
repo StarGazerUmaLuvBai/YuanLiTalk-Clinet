@@ -6,6 +6,7 @@
 #include "dialog.h"
 #include "password_change.h"
 #include "mainwindow.h"
+#include "photo.h"
 
 namespace Ui {
 class information;
@@ -17,8 +18,11 @@ class information : public QMainWindow
 
 public:
     explicit information(QWidget *parent = 0);
-    explicit information(QTcpSocket *sock, QWidget *parent = 0);
+    explicit information(QTcpSocket *sock, QString uname, QString id, QWidget *parent = 0);
     ~information();
+
+    QString username;
+    QString ID = "0";
 
 private slots:
     void on_close_clicked();
@@ -33,6 +37,15 @@ private slots:
 
     void on_contact_clicked();
 
+    void on_pushButton_clicked();
+
+    void phChange(QString);
+
+    void hadReadyRead();
+signals:
+    void toPhChange(int);
+
+    void toPWordChange(int);
 private:
     Ui::information *ui;
     int showflag = 0;

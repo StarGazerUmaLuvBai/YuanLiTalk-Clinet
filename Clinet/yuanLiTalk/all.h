@@ -8,7 +8,8 @@
 #include <QJsonDocument>
 #include <QJsonParseError>
 #include <QJsonObject>
-#include <QProcess>
+#include <QFileDialog>
+#include <QDataStream>
 
 #define Fail 1
 #define Success 0

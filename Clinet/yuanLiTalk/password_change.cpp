@@ -41,9 +41,18 @@ void password_change::on_yes_clicked()
     {
         QString packData = "{\"operation\" : \"passwordChange\" , \"password\" : "+pWord+"\"}";
         clinet->write(packData.toUtf8());
-        QMessageBox::information(this,"提示","修改成功");
-        this->hide();
     }
-    //系统处理函数还没有编写，这里直接返回正确
+}
 
+void password_change::RecStatus(int status)
+{
+    if(status == 1)
+    {
+        QMessageBox::warning(this,"失败","修改失败，请稍后再试");
+    }
+    else
+    {
+        QMessageBox::information(this,"成功","修改成功");
+    }
+    this->hide();
 }
