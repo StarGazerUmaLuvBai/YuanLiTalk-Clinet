@@ -67,8 +67,14 @@ void MainWindow::on_person1_clicked()
 
 void MainWindow::on_information_clicked()
 {
-    information *inForm = new information(clinet);
-
+    information *inForm = new information(clinet, username, ID);
+    disconnect(clinet,0, this,0);
     inForm->show();
     this->hide();
+}
+
+void MainWindow::on_file_reserve_clicked()
+{
+    file *fDia = new file();
+    fDia->show();
 }

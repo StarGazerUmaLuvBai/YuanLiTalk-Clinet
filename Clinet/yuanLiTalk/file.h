@@ -23,9 +23,16 @@ private slots:
 
     void on_minsize_clicked();
 
+    void on_select_file_clicked();
+
+    void hadConnected();
+
+    void on_send_clicked();
+
 private:
     Ui::file *ui;
     int showflag = 0;
+    QTcpSocket *clinet;
 };
 
 #endif // FILE_H
