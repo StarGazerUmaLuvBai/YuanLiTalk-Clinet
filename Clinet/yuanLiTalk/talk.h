@@ -15,20 +15,21 @@ class Talk : public QDialog
 
 public:
     explicit Talk(QWidget *parent = 0);
-    explicit Talk(QTcpSocket *sock, QWidget *parent = 0);
+    explicit Talk(QTcpSocket *sock, QString name,QString u,QWidget *parent = 0);
     ~Talk();
+    QString uid;
 
 private slots:
     void on_send_clicked();
     void hadReadyRec(QString);
 
     void on_clear_clicked();
-
 signals:
     void readySendMsg(QString);
 private:
     Ui::Talk *ui;
     QTcpSocket *clinet;
+    QString tName;
 };
 
 #endif // TALK_H

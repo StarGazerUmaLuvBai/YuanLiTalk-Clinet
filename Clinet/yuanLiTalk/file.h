@@ -33,6 +33,7 @@ private:
     Ui::file *ui;
     int showflag = 0;
     QTcpSocket *clinet;
+    QTimer timer;
 };
 
 #endif // FILE_H
