@@ -13,6 +13,7 @@
 #define YUANLITALK_FAILURE              1
 #define YUANLITALK_SYSTEM_ERROR         2
 #define YUANLITALK_WRONG_TOKEN          3
+#define YUANLITALK_NO_PERMISSION        4
 
 using json = nlohmann::json;
 using websocketpp::md5::md5_hash_hex;
@@ -85,14 +86,22 @@ namespace UserOperation {
 
 
   string random_str(int n = 50) {
-    char random_string_source[95] = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+    static char random_string_source[95] = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
     string s = "";
     for (int i = 0;i < n;++i) {
       s += random_string_source[randint(0, 93)];
     }
     return s;
   }
-
+  bool token_check(int uid, const string& uuid, const string& token) {
+    PreparedStatement check_legal_stmt(db, "SELECT * from user_device WHERE uid=? AND uuid=? AND token=?;");
+    check_legal_stmt.bind_value(1, uid);
+    check_legal_stmt.bind_value(2, uuid);
+    check_legal_stmt.bind_value(3, token);
+    int res;
+    res = check_legal_stmt.step();
+    return res == SQLITE_ROW;
+  }
   json u_register(const json& user_request) {
     lock_guard<shared_mutex> db_lock(db_mut);
     const string username = user_request["username"];
@@ -210,13 +219,10 @@ namespace UserOperation {
     long long sendingTime = (long long)time(NULL);
     lock_guard<shared_mutex> db_lock(db_mut);
 
-    PreparedStatement check_legal_stmt(db, "SELECT * from user_device WHERE uid=? AND uuid=? AND token=?;");
-    check_legal_stmt.bind_value(1, senderUid);
-    check_legal_stmt.bind_value(2, uuid);
-    check_legal_stmt.bind_value(3, token);
+
     int res;
-    res = check_legal_stmt.step();
-    if (res != SQLITE_ROW) {
+
+    if (!token_check(senderUid, uuid, token)) {
       return json({ { "status",YUANLITALK_WRONG_TOKEN } });
     }
 
@@ -238,33 +244,159 @@ namespace UserOperation {
       return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
     }
     shared_lock<shared_mutex> lock(Client::sh_mutex);
-    for (auto item : Client::user_record) {
-      printf("item :%d\n", item.first);
-    }
-    printf("receiverUid :%d\n", receiverUid);
     if (Client::user_record.count(receiverUid)) {
       // 如果在线直接发消息
       Client::user_record[receiverUid]->send(json({ {"operation","getMessage"},{"senderUid",senderUid},{"sendingTime",sendingTime},{"message",message} }));
 
-      printf("111111\n");
       PreparedStatement upd_stmt(db, "UPDATE user_device SET last_login = ? WHERE uid= ? and uuid = ?;");
       upd_stmt.bind_value(1, sendingTime);
       upd_stmt.bind_value(2, receiverUid);
       upd_stmt.bind_value(3, Client::user_record[receiverUid]->get_uuid());
       upd_stmt.step();
     }
-    printf("222222\n");
     PreparedStatement upd_stmt(db, "UPDATE user_device SET last_login = ? WHERE uid= ? and uuid = ?;");
     upd_stmt.bind_value(1, sendingTime);
     upd_stmt.bind_value(2, senderUid);
     upd_stmt.bind_value(3, Client::user_record[senderUid]->get_uuid());
     upd_stmt.step();
-    printf("444444\n");
     return json({ { "status",YUANLITALK_SUCCESS } });
-
   }
-};
+  json u_createGroup(const json& user_request) {
+    int uid = user_request["uid"];
+    const string token = user_request["token"];
+    const string uuid = user_request["uuid"];
+    const string groupName = user_request["groupName"];
+    int res;
+    lock_guard<shared_mutex> db_lock(db_mut);
 
+
+    if (!token_check(uid, uuid, token)) {
+      return json({ { "status",YUANLITALK_WRONG_TOKEN } });
+    }
+
+    PreparedStatement get_id_stmt(db, "select max(id) from 'group';");
+    res = get_id_stmt.step();
+    if (res != SQLITE_ROW && res != SQLITE_DONE) {
+      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+    }
+    int gid = (res == SQLITE_ROW ? get_id_stmt.get_result_int(0) : 0) + 1;
+    PreparedStatement insert_stmt(db, "INSERT INTO 'group'(gid, groupname) VALUES(?,?);");
+    insert_stmt.bind_value(1, gid);
+    insert_stmt.bind_value(2, groupName);
+    res = insert_stmt.step();
+
+    if (res != SQLITE_DONE) {
+      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+    }
+
+    insert_stmt.set_new(db, "INSERT INTO 'group_user'(gid, uid, user_role) VALUES(?,?,0);");
+    insert_stmt.bind_value(1, gid);
+    insert_stmt.bind_value(2, uid);
+    res = insert_stmt.step();
+
+    if (res != SQLITE_DONE) {
+      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+    }
+    if (user_request.count("memberUid")) {
+      json users = user_request["memberUid"];
+      for (json user : users) {
+        insert_stmt.set_new(db, "INSERT INTO 'group_user'(gid, uid, user_role) VALUES(?,?,2);");
+        insert_stmt.bind_value(1, gid);
+        insert_stmt.bind_value(2, user.get<int>());
+        res = insert_stmt.step();
+
+        if (res != SQLITE_DONE) {
+          return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+        }
+      }
+    }
+    return json({ { "status",YUANLITALK_SUCCESS },{"gid",gid} });
+  }
+  json u_inviteUser(const json& user_request) {
+    int uid = user_request["uid"];
+    const string token = user_request["token"];
+    const string uuid = user_request["uuid"];
+    int res;
+    int invitedUid = user_request["invitedUid"];
+    int gid = user_request["gid"];
+    if (!token_check(uid, uuid, token)) {
+      return json({ { "status",YUANLITALK_WRONG_TOKEN } });
+    }
+    PreparedStatement is_in_group_stmt(db, "SELECT * FROM 'group_user' WHERE uid=? AND gid=?;");
+    is_in_group_stmt.bind_value(1, uid);
+    is_in_group_stmt.bind_value(2, gid);
+    res = is_in_group_stmt.step();
+    if (res != SQLITE_ROW) {
+      return json({ { "status",YUANLITALK_NO_PERMISSION } });
+    }
+    PreparedStatement insert_stmt(db, "INSERT INTO 'group_user'(gid, uid, user_role) VALUES(?,?,2);");
+    insert_stmt.bind_value(1, gid);
+    insert_stmt.bind_value(2, invitedUid);
+    res = insert_stmt.step();
+
+    if (res != SQLITE_DONE) {
+      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+    }
+    return json({ { "status",YUANLITALK_SUCCESS } });
+  };
+  json u_sendGroupMessage(const json& user_request) {
+    int senderUid = user_request["senderUid"];
+    int gid = user_request["gid"];
+    const string message = user_request["message"];
+    const string token = user_request["token"];
+    const string uuid = user_request["uuid"];
+    long long sendingTime = (long long)time(NULL);
+    lock_guard<shared_mutex> db_lock(db_mut);
+
+
+    int res;
+
+    if (!token_check(senderUid, uuid, token)) {
+      return json({ { "status",YUANLITALK_WRONG_TOKEN } });
+    }
+
+    PreparedStatement get_id_stmt(db, "select max(id) from group_message;");
+    res = get_id_stmt.step();
+    if (res != SQLITE_ROW && res != SQLITE_DONE) {
+      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+    }
+    int message_id = (res == SQLITE_ROW ? get_id_stmt.get_result_int(0) : 0) + 1;
+    PreparedStatement insert_stmt(db, "INSERT INTO message_id(id, message, sender_uid,gid,sending_time) VALUES(?,?,?,?,?);");
+    insert_stmt.bind_value(1, message_id);
+    insert_stmt.bind_value(2, message);
+    insert_stmt.bind_value(3, senderUid);
+    insert_stmt.bind_value(4, gid);
+    insert_stmt.bind_value(5, sendingTime);
+    res = insert_stmt.step();
+
+    if (res != SQLITE_DONE) {
+      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+    }
+    shared_lock<shared_mutex> lock(Client::sh_mutex);
+    PreparedStatement get_group_users_stmt(db, "SELECT uid FROM 'group_user' WHERE gid=?;");
+    get_group_users_stmt.bind_value(1, gid);
+    while (get_group_users_stmt.step() == SQLITE_ROW) {
+      int receiverUid = get_group_users_stmt.get_result_int(0);
+      if (Client::user_record.count(receiverUid)) {
+        // 如果在线直接发消息
+        Client::user_record[receiverUid]->send(json({ {"operation","getGroupMessage"},{"senderUid",senderUid},{"gid",gid},{"sendingTime",sendingTime},{"message",message} }));
+
+        PreparedStatement upd_stmt(db, "UPDATE user_device SET last_login = ? WHERE uid= ? and uuid = ?;");
+        upd_stmt.bind_value(1, sendingTime);
+        upd_stmt.bind_value(2, receiverUid);
+        upd_stmt.bind_value(3, Client::user_record[receiverUid]->get_uuid());
+        upd_stmt.step();
+      }
+    }
+
+    PreparedStatement upd_stmt(db, "UPDATE user_device SET last_login = ? WHERE uid= ? and uuid = ?;");
+    upd_stmt.bind_value(1, sendingTime);
+    upd_stmt.bind_value(2, senderUid);
+    upd_stmt.bind_value(3, Client::user_record[senderUid]->get_uuid());
+    upd_stmt.step();
+    return json({ { "status",YUANLITALK_SUCCESS } });
+  }
+}
 
 
 

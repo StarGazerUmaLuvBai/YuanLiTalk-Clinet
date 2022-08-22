@@ -34,6 +34,7 @@ public:
 
   int step();
   int reset();
+  int set_new(const SQLiteDB& db, const std::string& sql);
   std::string get_result_string(int index);
   int get_result_int(int index);
   double get_result_double(int index);
@@ -84,6 +85,13 @@ PreparedStatement::~PreparedStatement() {
   if (stmt_set) {
     sqlite3_finalize(stmt);
   }
+}
+int PreparedStatement::set_new(const SQLiteDB& db, const std::string& sql) {
+  if (stmt_set) {
+    sqlite3_finalize(stmt);
+  }
+  stmt_set = true;
+  return sqlite3_prepare_v2(db.db, sql.c_str(), -1, &stmt, NULL);
 }
 void PreparedStatement::bind_value(int index, const std::string& value) {
   sqlite3_bind_text(stmt, index, value.c_str(), -1, NULL);
