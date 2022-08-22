@@ -37,12 +37,51 @@ private:
   sockaddr_in caddr;
   string ip;
   int port;
+  int fixed_len_send(const char* s, int size) {
+    int left = size;
+    const char* p = s;
+    while (left > 0) {
+      int len = ::send(cfd, p, left, 0);
+      if (len < 0) {
+        return -1;
+      }
+      else if (len == 0) {
+        continue;
+      }
+      else {
+        p += len;
+        left -= len;
+      }
+    }
+    return size;
+  }
+  int fixed_len_receive(char* s, int size) {
+    int left = size;
+    char* p = s;
+    while (left > 0) {
+      int len = ::recv(cfd, p, left, 0);
+      printf("fixed_len_receive len:%d,size:%d\n", len, size);
+      if (len < 0) {
+        return -1;
+      }
+      else if (len == 0) {
+        continue;
+      }
+      else {
+        p += len;
+        left -= len;
+      }
+    }
+    return size;
+  }
 public:
   ConnectionObject(int cfd, sockaddr_in caddr, const string& ip = "", int port = 0);
   ConnectionObject(const ConnectionObject&) = delete;
   ConnectionObject(ConnectionObject&& a);
   ~ConnectionObject();
-  string receive();
+  vector<char> receive();
+  void send(const vector<char>& buff);
+  void send(const char* buff, int len);
   void send(const string& buff);
   friend class Client;
 };
@@ -293,11 +332,6 @@ namespace UserOperation {
     res = insert_stmt.step();
 
 
-    PreparedStatement test(db, "select * from  'group';");
-    test.step();
-    printf("%d %s\n", test.get_result_int(0), test.get_result_string(1).c_str());
-
-
     if (res != SQLITE_DONE) {
       return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
     }
@@ -313,7 +347,6 @@ namespace UserOperation {
       return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
     }
 
-    printf("333333\n");
     if (user_request.count("memberUid")) {
       json users = user_request["memberUid"];
 
@@ -658,7 +691,6 @@ Client::~Client() {
     user_record.erase(uid);
   }
   connection_record.erase(main_connection.cfd);
-
 }
 
 json Client::commu_func(const json& user_request) {
@@ -673,7 +705,6 @@ json Client::commu_func(const json& user_request) {
     if (res["status"] == YUANLITALK_SUCCESS) {
       set_uid(user_request["uid"].get<int>());
       set_uuid(user_request["uuid"].get<string>());
-      printf("%d\n", (int)Client::user_record.size());
     }
     return res;
   }
@@ -693,11 +724,41 @@ json Client::commu_func(const json& user_request) {
     json res = UserOperation::u_sendGroupMessage(user_request);
     return res;
   }
+  else if (operation == "searchUser") {
+    json res = UserOperation::u_searchUser(user_request);
+    return res;
+  }
+  else if (operation == "searchGroup") {
+    json res = UserOperation::u_searchGroup(user_request);
+    return res;
+  }
+  else if (operation == "addUser") {
+    json res = UserOperation::u_addUser(user_request);
+    return res;
+  }
+  else if (operation == "accepetAddUser") {
+    json res = UserOperation::u_accepetAddUser(user_request);
+    return res;
+  }
+  else if (operation == "accepetAddGroup") {
+    json res = UserOperation::u_accepetAddGroup(user_request);
+    return res;
+  }
 
   return json({});
 }
 void Client::receive() {
-  string s = main_connection.receive();
+  vector<char> recv_data;
+  string s;
+  try {
+    recv_data = main_connection.receive();
+
+    s = string(recv_data.data(), recv_data.size());
+  }
+  catch (const string& e) {
+    printf("%s\n", e.c_str());
+  }
+
   json user_request;
   try {
     user_request = json::parse(s);
@@ -732,6 +793,7 @@ void  Client::client_thread(Client* cli) {
     try {
       cli->receive();
     }
+
     catch (const char* e) {
       printf("%s\n", e);
       break;
@@ -805,29 +867,51 @@ ConnectionObject::~ConnectionObject() {
   }
 }
 
-string ConnectionObject::receive() {
-  char buff[1024];
-
-  int len = recv(cfd, buff, sizeof(buff), 0);
-  if (len > 0) {
+vector<char> ConnectionObject::receive() {
+  // char buff[1024];
+  unsigned len = 0;
+  fixed_len_receive((char*)&len, sizeof(int));
+  len = ntohl(len);
+  printf("ntohl(len):%d\n", len);
+  vector<char> buff;
+  buff.resize(len);
+  int res = fixed_len_receive(buff.data(), len);
+  printf("datalen: %d\n", len);
+  if (res > 0) {
+    buff.resize(len + 1);
     buff[len] = '\0';
-    printf("%d %s\n", len, buff);
-    return string(buff);
+    printf("%d %s\n", len, buff.data());
+    buff.resize(len);
   }
   else if (len == 0) {
-    printf("客户端%s:%d断开连接\n", ip.c_str(), port);
+    string e = "客户端" + ip + ":" + to_string(port) + "断开连接";
+    // printf("客户端%s:%d断开连接\n", ip.c_str(), port);
+    throw e;
   }
   else {
-    printf("接受%s:%d的数据失败\n", ip.c_str(), port);
+    string e = "接收" + ip + ":" + to_string(port) + "的数据失败";
+    throw e;
   }
-  return "";
+  return buff;
 }
-void ConnectionObject::send(const string& buff) {
-  int len = ::send(cfd, buff.c_str(), buff.size(), 0);
-  if (len < 0) {
+void ConnectionObject::send(const char* s, int len) {
+  unsigned len_1 = htonl(len);
+  char* buff = new char[len + 4];
+  printf("No I am sending\n");
+  memcpy(buff, &len_1, 4);
+  memcpy(buff + 4, s, len);
+  int res = fixed_len_send(buff, len + 4);
+  delete buff;
+  if (res < 0) {
     throw "发送失败";
   }
 }
+void ConnectionObject::send(const vector<char>& buff) {
+  send(buff.data(), buff.size());
+}
 
+void ConnectionObject::send(const string& s) {
+  send(s.c_str(), s.size());
+}
 
 #endif
