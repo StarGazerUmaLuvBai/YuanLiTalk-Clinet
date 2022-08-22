@@ -50,7 +50,7 @@ void Dialog::hadConnected(){
       "password":""
     }
     */
-    username = uname;
+    uid = uname;
     QString data =
             "{\"operation\" : \"login\", \"username\" : \"" +
             uname + "\",\"password\" : \"" +
@@ -83,10 +83,9 @@ void Dialog::hadReadyRead(){
             else {
                 QMessageBox::information(this,"登录成功","欢迎使用猿理Talk!");
                 //TODO:登录成功后接MainWindow
-                MainWindow *mWindow = new MainWindow(clinet);
-                disconnect(clinet,0,this,0);
-                mWindow->username = this->username;
+                MainWindow *mWindow = new MainWindow(clinet, uid);
                 mWindow->show();
+                disconnect(clinet,0,this,0);
                 this->hide();
             }
         //}

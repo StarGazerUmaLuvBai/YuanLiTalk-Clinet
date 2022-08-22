@@ -31,7 +31,8 @@ SOURCES += main.cpp\
     file.cpp \
     talk.cpp \
     password_change.cpp \
-    photo.cpp
+    photo.cpp \
+    filerec.cpp
 
 HEADERS  += dialog.h \
     register.h \
@@ -41,7 +42,8 @@ HEADERS  += dialog.h \
     file.h \
     talk.h \
     password_change.h \
-    photo.h
+    photo.h \
+    filerec.h
 
 FORMS    += dialog.ui \
     register.ui \
@@ -50,7 +52,8 @@ FORMS    += dialog.ui \
     file.ui \
     talk.ui \
     password_change.ui \
-    photo.ui
+    photo.ui \
+    filerec.ui
 
 RESOURCES += \
     image.qrc

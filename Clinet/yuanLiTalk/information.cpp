@@ -8,38 +8,19 @@ information::information(QWidget *parent) :
     ui->setupUi(this);
     setWindowFlags(Qt::FramelessWindowHint);
 }
-information::information(QTcpSocket *sock, QString uname, QString id, QWidget *parent) :
+information::information(QTcpSocket *sock, QString id,QString u, QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::information)
 {
     ui->setupUi(this);
     setWindowFlags(Qt::FramelessWindowHint);
     clinet = sock;
-    connect(clinet, SIGNAL(readyRead()), this, SLOT(hadReadyRead()));
-    username = uname;
     ID = id;
-    ui->username->setText(this->username);
+    uid = u;
+    ui->username->setText(uid);
     QString phName = "image_test_" + ID + ".jpg";
     QString iconStyleSheet = "border-image: url(:/image/" + phName + ");";
     ui->image->setStyleSheet(iconStyleSheet);
-}
-
-void information::hadReadyRead()
-{
-    QByteArray msgArr = clinet->readAll();
-    QJsonParseError parseJsonErr;
-    QJsonDocument doucument = QJsonDocument::fromJson(msgArr,&parseJsonErr);
-    QJsonObject jsonObject = doucument.object();
-    QString operation = jsonObject["operation"].toString();
-    int status = jsonObject["status"].toInt();
-    if(operation == "photoChange")
-    {
-        emit toPhChange(status);
-    }
-    else if(operation == "passwordChange")
-    {
-        emit toPWordChange(status);
-    }
 }
 
 information::~information()
@@ -88,11 +69,6 @@ void information::on_password_change_clicked()
 
 void information::on_contact_clicked()
 {
-    MainWindow *mw = new MainWindow(clinet);
-    disconnect(clinet, 0, this, 0);
-    mw->username = username;
-    mw->ID = ID;
-    mw->show();
     this->hide();
 }
 
@@ -104,10 +80,21 @@ void information::on_pushButton_clicked()
     pH->show();
 }
 
+void information::msgToPhchange(int status)
+{
+    emit toPhChange(status);
+}
+
+void information::msgToPwordchange(int status)
+{
+    emit toPWordChange(status);
+}
+
 void information::phChange(QString id)
 {
     //border-image: url(:/image/image_test_0.jpg);
     ID = id;
+    emit IDchange(ID);
     QString phName = "image_test_" + id + ".jpg";
     QString iconStyleSheet = "border-image: url(:/image/" + phName + ");";
     ui->image->setStyleSheet(iconStyleSheet);

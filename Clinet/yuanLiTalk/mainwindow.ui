@@ -92,31 +92,29 @@
      <string>个人中心</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="person1">
+   <widget class="QPushButton" name="file_rec">
     <property name="geometry">
      <rect>
-      <x>90</x>
-      <y>100</y>
+      <x>700</x>
+      <y>460</y>
       <width>93</width>
       <height>28</height>
      </rect>
     </property>
     <property name="text">
-     <string>person1</string>
+     <string>文件接收</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="person2">
+   <widget class="QWidget" name="verticalLayoutWidget">
     <property name="geometry">
      <rect>
-      <x>90</x>
-      <y>160</y>
-      <width>93</width>
-      <height>28</height>
+      <x>10</x>
+      <y>0</y>
+      <width>651</width>
+      <height>501</height>
      </rect>
     </property>
-    <property name="text">
-     <string>person2</string>
-    </property>
+    <layout class="QVBoxLayout" name="verticalLayout"/>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">

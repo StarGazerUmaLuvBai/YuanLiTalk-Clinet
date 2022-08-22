@@ -71,7 +71,7 @@ void file::on_send_clicked()
 
     ui->select_file->setEnabled(false);//选择按钮变灰
     ui->send->setEnabled(false);
-    QString buff = "{\"operation\": \"fileSend\", "+QString("\"fileName: \"%1\", \"fileSize\": \"%2\", ").arg(fileName).arg(fileSize)+ "\"file\": ";
+    QString buff = "{\"operation\": \"fileSend\", "+QString("\"fileName: \"%1\", \"fileSize\": %2}").arg(fileName).arg(fileSize);
 
     //先发头
     qint64 lenth = clinet->write(buff.toUtf8());
@@ -79,6 +79,7 @@ void file::on_send_clicked()
     qint64 sendSize = 0;
     if(lenth > 0)
     {
+        this->timer.start(1000);
         qint64 len = 0 ;
 
             do{
@@ -96,10 +97,11 @@ void file::on_send_clicked()
             //文件数据发送完毕
             if (fileSize == sendSize)
                 {
-                clinet->write("}");
                 QMessageBox::information(this,"ok","文件发送完毕");
 
                 f->close();//关闭文件
+                clinet->disconnectFromHost();
+                this->hide();
                 //关闭客户端
             }
     }
