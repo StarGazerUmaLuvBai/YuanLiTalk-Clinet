@@ -14,7 +14,7 @@
 #define YUANLITALK_SYSTEM_ERROR         2
 #define YUANLITALK_WRONG_TOKEN          3
 #define YUANLITALK_NO_PERMISSION        4
-
+#define YUANLITALK_ALREADY_EXIST        5
 using json = nlohmann::json;
 using websocketpp::md5::md5_hash_hex;
 using namespace std;
@@ -74,7 +74,6 @@ shared_mutex Client::sh_mutex;
 namespace UserOperation {
 
   SQLiteDB db("project.db");
-  shared_mutex db_mut;
   template <class T>
   T randint(T l, T r = 0) {
     static mt19937 eng(time(NULL));
@@ -102,8 +101,39 @@ namespace UserOperation {
     res = check_legal_stmt.step();
     return res == SQLITE_ROW;
   }
+  void update_active_time(int uid, const string& uuid, long long new_time) {
+    PreparedStatement upd_stmt(db, "UPDATE user_device SET last_active_time = ? WHERE uid= ? and uuid = ?;");
+    upd_stmt.bind_value(1, new_time);
+    upd_stmt.bind_value(2, uid);
+    upd_stmt.bind_value(3, uuid);
+    upd_stmt.step();
+  }
+  void send_message(int senderUid, int receiverUid, long long sendingTime, const string& message) {
+    PreparedStatement get_id_stmt(db, "select max(id) from message;");
+    int res = get_id_stmt.step();
+    if (res != SQLITE_ROW && res != SQLITE_DONE) {
+      throw "system error when sending message";
+    }
+    int message_id = (res == SQLITE_ROW ? get_id_stmt.get_result_int(0) : 0) + 1;
+    PreparedStatement insert_stmt(db, "INSERT INTO message(id, message, sender_uid,receiver_uid,sending_time) VALUES(?,?,?,?,?);");
+    insert_stmt.bind_value(1, message_id);
+    insert_stmt.bind_value(2, message);
+    insert_stmt.bind_value(3, senderUid);
+    insert_stmt.bind_value(4, receiverUid);
+    insert_stmt.bind_value(5, sendingTime);
+    res = insert_stmt.step();
+
+    if (Client::user_record.count(receiverUid)) {
+      // 如果在线直接发消息
+      Client::user_record[receiverUid]->send(json({ {"operation","getMessage"},{"senderUid",senderUid},{"sendingTime",sendingTime},{"message",message} }));
+      update_active_time(receiverUid, Client::user_record[receiverUid]->get_uuid(), sendingTime);
+    }
+    if (senderUid) { // senderUid=0为系统消息，无需更新
+      update_active_time(senderUid, Client::user_record[senderUid]->get_uuid(), sendingTime);
+    }
+  }
   json u_register(const json& user_request) {
-    lock_guard<shared_mutex> db_lock(db_mut);
+    SQLTransaction transaction(db);
     const string username = user_request["username"];
     const string password = md5_hash_hex(user_request["password"]);
     PreparedStatement stmt(db, "select max(uid) from user;");
@@ -121,17 +151,17 @@ namespace UserOperation {
     insert_user_stmt.bind_value(3, password);
 
     res = insert_user_stmt.step();
-    if (res == SQLITE_DONE) {
-      return json({ { "status",YUANLITALK_SUCCESS },{"uid",uid} });
-    }
-    else {
+    if (res != SQLITE_DONE) {
       return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
     }
+
+    transaction.commit();
+    return json({ { "status",YUANLITALK_SUCCESS },{"uid",uid} });
   }
   json u_login(const json& user_request) {
 
 
-    lock_guard<shared_mutex> db_lock(db_mut);
+    SQLTransaction transaction(db);
     // 有两种登录方式，一种是用密码登录，一种是用token登录（记住密码）
     const int uid = user_request["uid"];
     const string password = user_request.count("password") ? md5_hash_hex(user_request["password"]) : "";
@@ -172,7 +202,7 @@ namespace UserOperation {
       int res;
       res = precheck_stmt.step();
       if (res == SQLITE_ROW) {
-        PreparedStatement update_stmt(db, "UPDATE user_device SET token = ?, last_login=strftime('%s','now') WHERE uid = ? AND uuid = ?;");
+        PreparedStatement update_stmt(db, "UPDATE user_device SET token = ?, last_active_time=strftime('%s','now') WHERE uid = ? AND uuid = ?;");
 
         update_stmt.bind_value(1, new_token);
         update_stmt.bind_value(2, uid);
@@ -180,24 +210,23 @@ namespace UserOperation {
         res = update_stmt.step();
       }
       else {
-        PreparedStatement update_stmt(db, "INSERT INTO user_device(token,uid,uuid,last_login) values(?,?,?,strftime('%s','now'));");
+        PreparedStatement update_stmt(db, "INSERT INTO user_device(token,uid,uuid,last_active_time) values(?,?,?,strftime('%s','now'));");
 
         update_stmt.bind_value(1, new_token);
         update_stmt.bind_value(2, uid);
         update_stmt.bind_value(3, uuid);
         res = update_stmt.step();
       }
-      printf("%d\n", res);
 
       if (res != SQLITE_DONE) {
         return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
       }
-
+      transaction.commit();
       return json({ { "status",YUANLITALK_SUCCESS },{"token",new_token} });
     }
     else {
 
-      PreparedStatement update_stmt(db, "UPDATE user_device SET last_login=strftime('%s','now') WHERE uid = ? AND uuid = ?;");
+      PreparedStatement update_stmt(db, "UPDATE user_device SET last_active_time=strftime('%s','now') WHERE uid = ? AND uuid = ?;");
 
       update_stmt.bind_value(1, uid);
       update_stmt.bind_value(2, uuid);
@@ -206,6 +235,7 @@ namespace UserOperation {
       if (res != SQLITE_DONE) {
         return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
       }
+      transaction.commit();
       return json({ { "status",YUANLITALK_SUCCESS } });
     }
   }
@@ -217,7 +247,7 @@ namespace UserOperation {
     const string token = user_request["token"];
     const string uuid = user_request["uuid"];
     long long sendingTime = (long long)time(NULL);
-    lock_guard<shared_mutex> db_lock(db_mut);
+    SQLTransaction transaction(db);
 
 
     int res;
@@ -226,39 +256,16 @@ namespace UserOperation {
       return json({ { "status",YUANLITALK_WRONG_TOKEN } });
     }
 
-    PreparedStatement get_id_stmt(db, "select max(id) from message;");
-    res = get_id_stmt.step();
-    if (res != SQLITE_ROW && res != SQLITE_DONE) {
-      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
-    }
-    int message_id = (res == SQLITE_ROW ? get_id_stmt.get_result_int(0) : 0) + 1;
-    PreparedStatement insert_stmt(db, "INSERT INTO message(id, message, sender_uid,receiver_uid,sending_time) VALUES(?,?,?,?,?);");
-    insert_stmt.bind_value(1, message_id);
-    insert_stmt.bind_value(2, message);
-    insert_stmt.bind_value(3, senderUid);
-    insert_stmt.bind_value(4, receiverUid);
-    insert_stmt.bind_value(5, sendingTime);
-    res = insert_stmt.step();
-
-    if (res != SQLITE_DONE) {
-      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
-    }
     shared_lock<shared_mutex> lock(Client::sh_mutex);
-    if (Client::user_record.count(receiverUid)) {
-      // 如果在线直接发消息
-      Client::user_record[receiverUid]->send(json({ {"operation","getMessage"},{"senderUid",senderUid},{"sendingTime",sendingTime},{"message",message} }));
-
-      PreparedStatement upd_stmt(db, "UPDATE user_device SET last_login = ? WHERE uid= ? and uuid = ?;");
-      upd_stmt.bind_value(1, sendingTime);
-      upd_stmt.bind_value(2, receiverUid);
-      upd_stmt.bind_value(3, Client::user_record[receiverUid]->get_uuid());
-      upd_stmt.step();
+    try {
+      send_message(senderUid, receiverUid, sendingTime, message);
     }
-    PreparedStatement upd_stmt(db, "UPDATE user_device SET last_login = ? WHERE uid= ? and uuid = ?;");
-    upd_stmt.bind_value(1, sendingTime);
-    upd_stmt.bind_value(2, senderUid);
-    upd_stmt.bind_value(3, Client::user_record[senderUid]->get_uuid());
-    upd_stmt.step();
+    catch (const char* s) {
+      printf("%s\n", s);
+      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+    }
+
+    transaction.commit();
     return json({ { "status",YUANLITALK_SUCCESS } });
   }
   json u_createGroup(const json& user_request) {
@@ -267,23 +274,29 @@ namespace UserOperation {
     const string uuid = user_request["uuid"];
     const string groupName = user_request["groupName"];
     int res;
-    lock_guard<shared_mutex> db_lock(db_mut);
+    SQLTransaction transaction(db);
 
 
     if (!token_check(uid, uuid, token)) {
       return json({ { "status",YUANLITALK_WRONG_TOKEN } });
     }
 
-    PreparedStatement get_id_stmt(db, "select max(id) from 'group';");
+    PreparedStatement get_id_stmt(db, "select max(gid) from 'group';");
     res = get_id_stmt.step();
     if (res != SQLITE_ROW && res != SQLITE_DONE) {
       return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
     }
-    int gid = (res == SQLITE_ROW ? get_id_stmt.get_result_int(0) : 0) + 1;
+    int gid = (res == SQLITE_ROW ? get_id_stmt.get_result_int(0) : 100000) + 1;
     PreparedStatement insert_stmt(db, "INSERT INTO 'group'(gid, groupname) VALUES(?,?);");
     insert_stmt.bind_value(1, gid);
     insert_stmt.bind_value(2, groupName);
     res = insert_stmt.step();
+
+
+    PreparedStatement test(db, "select * from  'group';");
+    test.step();
+    printf("%d %s\n", test.get_result_int(0), test.get_result_string(1).c_str());
+
 
     if (res != SQLITE_DONE) {
       return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
@@ -292,14 +305,21 @@ namespace UserOperation {
     insert_stmt.set_new(db, "INSERT INTO 'group_user'(gid, uid, user_role) VALUES(?,?,0);");
     insert_stmt.bind_value(1, gid);
     insert_stmt.bind_value(2, uid);
-    res = insert_stmt.step();
 
+    printf("%d %d\n", gid, uid);
+    res = insert_stmt.step();
+    printf("%d\n", res);
     if (res != SQLITE_DONE) {
       return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
     }
+
+    printf("333333\n");
     if (user_request.count("memberUid")) {
       json users = user_request["memberUid"];
+
       for (json user : users) {
+
+        printf("%d\n", user.get<int>());
         insert_stmt.set_new(db, "INSERT INTO 'group_user'(gid, uid, user_role) VALUES(?,?,2);");
         insert_stmt.bind_value(1, gid);
         insert_stmt.bind_value(2, user.get<int>());
@@ -310,6 +330,8 @@ namespace UserOperation {
         }
       }
     }
+
+    transaction.commit();
     return json({ { "status",YUANLITALK_SUCCESS },{"gid",gid} });
   }
   json u_inviteUser(const json& user_request) {
@@ -319,6 +341,8 @@ namespace UserOperation {
     int res;
     int invitedUid = user_request["invitedUid"];
     int gid = user_request["gid"];
+
+    SQLTransaction transaction(db);
     if (!token_check(uid, uuid, token)) {
       return json({ { "status",YUANLITALK_WRONG_TOKEN } });
     }
@@ -337,6 +361,7 @@ namespace UserOperation {
     if (res != SQLITE_DONE) {
       return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
     }
+    transaction.commit();
     return json({ { "status",YUANLITALK_SUCCESS } });
   };
   json u_sendGroupMessage(const json& user_request) {
@@ -346,8 +371,8 @@ namespace UserOperation {
     const string token = user_request["token"];
     const string uuid = user_request["uuid"];
     long long sendingTime = (long long)time(NULL);
-    lock_guard<shared_mutex> db_lock(db_mut);
 
+    SQLTransaction transaction(db);
 
     int res;
 
@@ -361,7 +386,7 @@ namespace UserOperation {
       return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
     }
     int message_id = (res == SQLITE_ROW ? get_id_stmt.get_result_int(0) : 0) + 1;
-    PreparedStatement insert_stmt(db, "INSERT INTO message_id(id, message, sender_uid,gid,sending_time) VALUES(?,?,?,?,?);");
+    PreparedStatement insert_stmt(db, "INSERT INTO group_message(id, message, sender_uid,gid,sending_time) VALUES(?,?,?,?,?);");
     insert_stmt.bind_value(1, message_id);
     insert_stmt.bind_value(2, message);
     insert_stmt.bind_value(3, senderUid);
@@ -375,25 +400,237 @@ namespace UserOperation {
     shared_lock<shared_mutex> lock(Client::sh_mutex);
     PreparedStatement get_group_users_stmt(db, "SELECT uid FROM 'group_user' WHERE gid=?;");
     get_group_users_stmt.bind_value(1, gid);
+    printf("1111");
     while (get_group_users_stmt.step() == SQLITE_ROW) {
       int receiverUid = get_group_users_stmt.get_result_int(0);
+      if (receiverUid == senderUid) continue;
+
+      printf("receiverUid :%d\n", receiverUid);
       if (Client::user_record.count(receiverUid)) {
         // 如果在线直接发消息
         Client::user_record[receiverUid]->send(json({ {"operation","getGroupMessage"},{"senderUid",senderUid},{"gid",gid},{"sendingTime",sendingTime},{"message",message} }));
 
-        PreparedStatement upd_stmt(db, "UPDATE user_device SET last_login = ? WHERE uid= ? and uuid = ?;");
-        upd_stmt.bind_value(1, sendingTime);
-        upd_stmt.bind_value(2, receiverUid);
-        upd_stmt.bind_value(3, Client::user_record[receiverUid]->get_uuid());
-        upd_stmt.step();
+        update_active_time(receiverUid, Client::user_record[receiverUid]->get_uuid(), sendingTime);
+
       }
     }
+    update_active_time(senderUid, Client::user_record[senderUid]->get_uuid(), sendingTime);
+    transaction.commit();
+    return json({ { "status",YUANLITALK_SUCCESS } });
+  }
+  json u_searchUser(const json& user_request) {
+    int uid = user_request["uid"];
+    const string token = user_request["token"];
+    const string uuid = user_request["uuid"];
+    const string key = user_request["uuid"];
+    int res;
+    SQLTransaction transaction(db);
+    if (!token_check(uid, uuid, token)) {
+      return json({ { "status",YUANLITALK_WRONG_TOKEN } });
+    }
+    vector<int> user_list;
+    PreparedStatement serach_stmt(db, "SELECT uid FROM 'user' WHERE uid=? OR username LIKE ?;");
+    serach_stmt.bind_value(1, key);
+    serach_stmt.bind_value(2, "%" + key + "%");
 
-    PreparedStatement upd_stmt(db, "UPDATE user_device SET last_login = ? WHERE uid= ? and uuid = ?;");
-    upd_stmt.bind_value(1, sendingTime);
-    upd_stmt.bind_value(2, senderUid);
-    upd_stmt.bind_value(3, Client::user_record[senderUid]->get_uuid());
-    upd_stmt.step();
+    while (serach_stmt.step() == SQLITE_ROW) {
+      user_list.push_back(serach_stmt.get_result_int(0));
+    }
+
+    transaction.commit();
+    return json({ { "status",YUANLITALK_SUCCESS } ,{"uid",user_list} });
+  }
+  json u_searchGroup(const json& user_request) {
+    int uid = user_request["uid"];
+    const string token = user_request["token"];
+    const string uuid = user_request["uuid"];
+    const string key = user_request["key"];
+    int res;
+
+    SQLTransaction transaction(db);
+    if (!token_check(uid, uuid, token)) {
+      return json({ { "status",YUANLITALK_WRONG_TOKEN } });
+    }
+    vector<int> group_list;
+    PreparedStatement serach_stmt(db, "SELECT gid FROM 'group' WHERE gid = ? OR groupname LIKE ?;");
+    serach_stmt.bind_value(1, key);
+    serach_stmt.bind_value(2, "%" + key + "%");
+
+    while (serach_stmt.step() == SQLITE_ROW) {
+      group_list.push_back(serach_stmt.get_result_int(0));
+    }
+
+    transaction.commit();
+    return json({ { "status",YUANLITALK_SUCCESS } ,{"uid",group_list} });
+  }
+  json u_addUser(const json& user_request) {
+    int uid = user_request["uid"];
+    const string token = user_request["token"];
+    const string uuid = user_request["uuid"];
+    const int addUid = user_request["addUid"];
+    long long sendingTime = (long long)time(NULL);
+    SQLTransaction transaction(db);
+    int res;
+    if (!token_check(uid, uuid, token)) {
+      return json({ { "status",YUANLITALK_WRONG_TOKEN } });
+    }
+
+
+    PreparedStatement set_new_pending_friend_stmt(db, "INSERT INTO pending_friend(uid1, uid2, sending_time) VALUES(?,?,?)");
+    set_new_pending_friend_stmt.bind_value(1, uid);
+    set_new_pending_friend_stmt.bind_value(2, addUid);
+    set_new_pending_friend_stmt.bind_value(3, sendingTime);
+    res = set_new_pending_friend_stmt.step();
+    if (res != SQLITE_DONE) {
+      return json({ { "status",YUANLITALK_ALREADY_EXIST } });
+    }
+    shared_lock<shared_mutex> lock(Client::sh_mutex);
+    if (Client::user_record.count(addUid)) {
+      // 如果在线直接发消息
+      Client::user_record[addUid]->send(json({ {"operation","friendRequest"},{"fromWho",uid},{"sendingTime",sendingTime} }));
+
+      update_active_time(addUid, Client::user_record[addUid]->get_uuid(), sendingTime);
+    }
+    update_active_time(uid, Client::user_record[uid]->get_uuid(), sendingTime);
+
+    transaction.commit();
+    return json({ { "status",YUANLITALK_SUCCESS } });
+  }
+  json u_addGroup(const json& user_request) {
+
+    int uid = user_request["uid"];
+    const string token = user_request["token"];
+    const string uuid = user_request["uuid"];
+    const int addGid = user_request["addGid"];
+    long long sendingTime = (long long)time(NULL);
+    SQLTransaction transaction(db);
+    int res;
+    if (!token_check(uid, uuid, token)) {
+      return json({ { "status",YUANLITALK_WRONG_TOKEN } });
+    }
+
+    PreparedStatement set_new_pending_friend_stmt(db, "INSERT INTO pending_group_member(uid, gid, sending_time) VALUES(?,?,?)");
+    set_new_pending_friend_stmt.bind_value(1, uid);
+    set_new_pending_friend_stmt.bind_value(2, addGid);
+    set_new_pending_friend_stmt.bind_value(3, sendingTime);
+    res = set_new_pending_friend_stmt.step();
+    if (res != SQLITE_DONE) {
+      return json({ { "status",YUANLITALK_ALREADY_EXIST } });
+    }
+
+    shared_lock<shared_mutex> lock(Client::sh_mutex);
+
+    PreparedStatement get_group_users_stmt(db, "SELECT uid FROM 'group_user' WHERE gid=? and user_role<2;");
+    get_group_users_stmt.bind_value(1, addGid);
+    while (get_group_users_stmt.step() == SQLITE_ROW) {
+      int admin = get_group_users_stmt.get_result_int(0);
+      if (Client::user_record.count(admin)) {
+        // 如果在线直接发消息
+        Client::user_record[admin]->send(json({ {"operation","addGroupRequest"},{"fromWho",uid},{"sendingTime",sendingTime} }));
+        update_active_time(admin, Client::user_record[admin]->get_uuid(), sendingTime);
+      }
+    }
+    update_active_time(uid, Client::user_record[uid]->get_uuid(), sendingTime);
+
+    transaction.commit();
+    return json({ { "status",YUANLITALK_SUCCESS } });
+  }
+
+  json u_accepetAddUser(const json& user_request) {
+    int uid = user_request["uid"];
+    const string token = user_request["token"];
+    const string uuid = user_request["uuid"];
+    int fromWho = user_request["fromWho"];
+    bool accept = user_request["accept"];
+    SQLTransaction transaction(db);
+    int res;
+    if (!token_check(uid, uuid, token)) {
+      return json({ { "status",YUANLITALK_WRONG_TOKEN } });
+    }
+    PreparedStatement delete_request_stmt(db, "DELETE FROM pending_friend WHERE uid1=? AND uid2=?;");
+    delete_request_stmt.bind_value(1, fromWho);
+    delete_request_stmt.bind_value(2, uid);
+    delete_request_stmt.step();
+    shared_lock<shared_mutex> lock(Client::sh_mutex);
+
+    if (accept) {
+      try {
+        PreparedStatement new_friend_stmt(db, "INSERT INTO friend(uid1,uid2) VALUES(?,?);");
+        new_friend_stmt.bind_value(1, fromWho);
+        new_friend_stmt.bind_value(2, uid);
+        new_friend_stmt.step();
+        new_friend_stmt.reset();
+        new_friend_stmt.bind_value(1, uid);
+        new_friend_stmt.bind_value(2, fromWho);
+        new_friend_stmt.step();
+        send_message(0, fromWho, time(NULL), to_string(uid) + "同意了你的好友申请");
+      }
+      catch (const char* s) {
+        printf("%s\n", s);
+        return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+      }
+    }
+    else {
+      try {
+        send_message(0, fromWho, time(NULL), to_string(uid) + "拒绝了你的好友申请");
+      }
+      catch (const char* s) {
+        printf("%s\n", s);
+        return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+      }
+    }
+    transaction.commit();
+    return json({ { "status",YUANLITALK_SUCCESS } });
+  }
+  json u_accepetAddGroup(const json& user_request) {
+    int uid = user_request["uid"];
+    const string token = user_request["token"];
+    const string uuid = user_request["uuid"];
+    int gid = user_request["gid"];
+    int fromWho = user_request["fromWho"];
+    bool accept = user_request["accept"];
+    SQLTransaction transaction(db);
+    int res;
+    if (!token_check(uid, uuid, token)) {
+      return json({ { "status",YUANLITALK_WRONG_TOKEN } });
+    }
+    PreparedStatement check_is_admin(db, "SELECT uid FROM 'group_user' WHERE gid=? AND uid=? AND user_role<2;");
+    check_is_admin.bind_value(1, gid);
+    check_is_admin.bind_value(2, uid);
+    res = check_is_admin.step();
+    if (res != SQLITE_ROW) {
+      return json({ { "status",YUANLITALK_NO_PERMISSION } });
+    }
+
+    PreparedStatement delete_request_stmt(db, "DELETE FROM pending_group_member WHERE uid=? AND gid=?;");
+    delete_request_stmt.bind_value(1, fromWho);
+    delete_request_stmt.bind_value(2, gid);
+    delete_request_stmt.step();
+    shared_lock<shared_mutex> lock(Client::sh_mutex);
+
+    if (accept) {
+      try {
+        PreparedStatement new_member_stmt(db, "INSERT INTO group_user(gid,uid) VALUES(?,?);");
+        new_member_stmt.bind_value(1, gid);
+        new_member_stmt.bind_value(2, fromWho);
+        new_member_stmt.step();
+        send_message(0, fromWho, time(NULL), "你已进入群聊" + to_string(gid));
+      }
+      catch (const char* s) {
+        printf("%s\n", s);
+        return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+      }
+    }
+    else {
+      try {
+        send_message(0, fromWho, time(NULL), to_string(uid) + "群" + to_string(gid) + "拒绝了你");
+      }
+      catch (const char* s) {
+        printf("%s\n", s);
+        return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+      }
+    }
+    transaction.commit();
     return json({ { "status",YUANLITALK_SUCCESS } });
   }
 }
@@ -426,6 +663,7 @@ Client::~Client() {
 
 json Client::commu_func(const json& user_request) {
   string operation = user_request["operation"];
+
   if (operation == "register") {
     json res = UserOperation::u_register(user_request);
     return res;
@@ -443,6 +681,19 @@ json Client::commu_func(const json& user_request) {
     json res = UserOperation::u_sendMessage(user_request);
     return res;
   }
+  else if (operation == "createGroup") {
+    json res = UserOperation::u_createGroup(user_request);
+    return res;
+  }
+  else if (operation == "inviteUser") {
+    json res = UserOperation::u_inviteUser(user_request);
+    return res;
+  }
+  else if (operation == "sendGroupMessage") {
+    json res = UserOperation::u_sendGroupMessage(user_request);
+    return res;
+  }
+
   return json({});
 }
 void Client::receive() {
@@ -555,7 +806,7 @@ ConnectionObject::~ConnectionObject() {
 }
 
 string ConnectionObject::receive() {
-  static char buff[1024];
+  char buff[1024];
 
   int len = recv(cfd, buff, sizeof(buff), 0);
   if (len > 0) {

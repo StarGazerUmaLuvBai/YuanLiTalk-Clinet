@@ -4,6 +4,7 @@
 #define LYC_SQLITE_OO
 class SQLiteDB;
 class PreparedStatement;
+class SQLTransaction;
 class SQLiteDB {
 private:
   sqlite3* db;
@@ -16,6 +17,7 @@ public:
   // void open(const std::string& db_name);
   // void close();
   friend PreparedStatement;
+  friend SQLTransaction;
 };
 
 class PreparedStatement {
@@ -38,8 +40,16 @@ public:
   std::string get_result_string(int index);
   int get_result_int(int index);
   double get_result_double(int index);
+};
 
-
+class SQLTransaction {
+private:
+  bool is_commit;
+  sqlite3* db;
+public:
+  SQLTransaction(const SQLiteDB& db);
+  ~SQLTransaction();
+  void commit();
 };
 
 // SQLiteDB 实现
@@ -59,19 +69,7 @@ SQLiteDB::~SQLiteDB() {
     db_opened = false;
   }
 }
-// void SQLiteDB::open(const std::string& db_name) {
-//   close();
-//   int res = sqlite3_open(db_name.c_str(), &db);
-//   if (res != SQLITE_OK) {
-//     throw "can't open file with error: " + std::string(sqlite3_errmsg(db));
-//   }
-//   db_opened = res == SQLITE_OK;
-// }
-// void SQLiteDB::close() {
-//   if (db_opened) {
-//     sqlite3_close(db);
-//   }
-// }
+
 
 // PreparedStatement 实现
 PreparedStatement::PreparedStatement() {
@@ -129,5 +127,33 @@ double PreparedStatement::get_result_double(int index) {
     throw "db returned no data";
   }
   return sqlite3_column_double(stmt, index);
+}
+
+SQLTransaction::SQLTransaction(const SQLiteDB& db) {
+  this->db = db.db;
+  is_commit = false;
+
+  sqlite3_stmt* stmt;
+  sqlite3_prepare_v2(this->db, "BEGIN;", -1, &stmt, NULL);
+  sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+}
+SQLTransaction::~SQLTransaction() {
+  if (!is_commit) {
+    sqlite3_stmt* stmt;
+    sqlite3_prepare_v2(db, "ROLLBACK;", -1, &stmt, NULL);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+  }
+}
+void SQLTransaction::commit() {
+  if (is_commit) {
+    throw "already committed";
+  }
+  sqlite3_stmt* stmt;
+  sqlite3_prepare_v2(db, "COMMIT;", -1, &stmt, NULL);
+  sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  is_commit = true;
 }
 #endif
