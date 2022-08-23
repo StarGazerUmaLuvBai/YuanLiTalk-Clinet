@@ -180,7 +180,7 @@ namespace UserOperation {
     int res;
     res = stmt.step();
     if (res != SQLITE_ROW && res != SQLITE_DONE) {
-      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+      return json({ { "status",YUANLITALK_SYSTEM_ERROR },{ "signal","registerResult" } });
     }
     int uid = (res == SQLITE_ROW ? stmt.get_result_int(0) : 100000) + 1;
     printf("uid:%d\n", uid);
@@ -191,11 +191,11 @@ namespace UserOperation {
 
     res = insert_user_stmt.step();
     if (res != SQLITE_DONE) {
-      return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+      return json({ { "status",YUANLITALK_SYSTEM_ERROR } ,{ "signal","registerResult" } });
     }
 
     transaction.commit();
-    return json({ { "status",YUANLITALK_SUCCESS },{"uid",uid} });
+    return json({ { "status",YUANLITALK_SUCCESS },{"uid",uid},{ "signal","registerResult"} });
   }
   json u_login(const json& user_request) {
 
@@ -214,7 +214,7 @@ namespace UserOperation {
       int res;
       res = query_stmt.step();
       if (res != SQLITE_ROW) {
-        return json({ { "status",YUANLITALK_FAILURE } });
+        return json({ { "status",YUANLITALK_FAILURE },{ "signal","loginResult" } });
       }
     }
     else {
@@ -228,7 +228,7 @@ namespace UserOperation {
       res = query_stmt.step();
       printf("%d\n", res);
       if (res != SQLITE_ROW) {
-        return json({ { "status",YUANLITALK_FAILURE } });
+        return json({ { "status",YUANLITALK_FAILURE } ,{ "signal","loginResult" } });
       }
     }
 
@@ -258,10 +258,10 @@ namespace UserOperation {
       }
 
       if (res != SQLITE_DONE) {
-        return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+        return json({ { "status",YUANLITALK_SYSTEM_ERROR } ,{ "signal","loginResult" } });
       }
       transaction.commit();
-      return json({ { "status",YUANLITALK_SUCCESS },{"token",new_token} });
+      return json({ { "status",YUANLITALK_SUCCESS },{"token",new_token},{ "signal","loginResult" },{"type","passwordLogin"} });
     }
     else {
 
@@ -272,10 +272,10 @@ namespace UserOperation {
 
       int res = update_stmt.step();
       if (res != SQLITE_DONE) {
-        return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
+        return json({ { "status",YUANLITALK_SYSTEM_ERROR } ,{ "signal","loginResult" } });
       }
       transaction.commit();
-      return json({ { "status",YUANLITALK_SUCCESS } });
+      return json({ { "status",YUANLITALK_SUCCESS } ,{ "signal","loginResult" },{"type","tokenLogin"} });
     }
   }
   json u_sendMessage(const json& user_request) {
@@ -897,7 +897,7 @@ vector<char> ConnectionObject::receive() {
 void ConnectionObject::send(const char* s, int len) {
   unsigned len_1 = htonl(len);
   char* buff = new char[len + 4];
-  printf("No I am sending\n");
+  printf("No I am sending %d\n", len);
   memcpy(buff, &len_1, 4);
   memcpy(buff + 4, s, len);
   int res = fixed_len_send(buff, len + 4);

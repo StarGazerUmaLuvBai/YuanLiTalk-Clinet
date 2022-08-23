@@ -419,3 +419,32 @@
 + `YUANLITALK_FAILURE`：失败
 + `YUANLITALK_SYSTEM_ERROR`：系统错误
 + `YUANLITALK_WRONG_TOKEN`：token信息无效
+
+
+# 本地json数据
+
+## rememberedUser
+
+用于存储所有用户的信息
+
+```json
+{
+  "123456":{
+    "rememberPassword":true,
+    "token":"h-%+*592j||q5XL}X,[wPAN0t.XBtS0T:$!JiT}v%^zY(fv,Oj|"
+  },
+  "100001":{
+    "rememberPassword":false
+  }
+}
+```
+## lastLogin
+
+```json
+{
+  "rememberPassword":true,
+  "token":"h-%+*592j||q5XL}X,[wPAN0t.XBtS0T:$!JiT}v%^zY(fv,Oj|",
+  "uid":100005
+}
+```
+
