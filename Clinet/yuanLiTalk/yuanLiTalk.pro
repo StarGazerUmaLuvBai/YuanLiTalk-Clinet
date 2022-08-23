@@ -26,36 +26,38 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += main.cpp\
         dialog.cpp \
     register.cpp \
-    mainwindow.cpp \
     information.cpp \
     file.cpp \
     talk.cpp \
     password_change.cpp \
     photo.cpp \
     filerec.cpp \
-    tcpnetwork.cpp
+    tcpnetwork.cpp \
+    mainwindow.cpp \
+    filestorage.cpp
 
 HEADERS  += dialog.h \
     register.h \
     all.h \
-    mainwindow.h \
     information.h \
     file.h \
     talk.h \
     password_change.h \
     photo.h \
     filerec.h \
-    tcpnetwork.h
+    tcpnetwork.h \
+    mainwindow.h \
+    filestorage.h
 
 FORMS    += dialog.ui \
     register.ui \
-    mainwindow.ui \
     information.ui \
     file.ui \
     talk.ui \
     password_change.ui \
     photo.ui \
-    filerec.ui
+    filerec.ui \
+    mainwindow.ui
 
 RESOURCES += \
     image.qrc

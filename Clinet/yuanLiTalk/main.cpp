@@ -2,11 +2,14 @@
 #include "register.h"
 #include <QApplication>
 #include "tcpnetwork.h"
+#include "mainwindow.h"
 #include <QProcess>
 tcpnetwork *socket;
 QString token;
 QString uuid;
 QJsonObject remembered_user;
+QJsonArray friend_list;
+QJsonArray group_list;
 int main(int argc, char *argv[])
 {
 
@@ -41,9 +44,6 @@ int main(int argc, char *argv[])
         file.write("{}");
         file.close();
     }
-    else{
-
-    }
     QFile file(dataDir.filePath("rememberedUser"));
     file.open(QIODevice::ReadOnly | QIODevice::Text);
     QByteArray arr = file.readAll();
@@ -53,5 +53,7 @@ int main(int argc, char *argv[])
 
     Dialog w;
     w.show();
+    MainWindow mw;
+    mw.show();
     return a.exec();
 }
