@@ -17,6 +17,9 @@ public:
 
 private:
     Ui::MainWindow *ui;
+    int current_chatting_id;
+    QString current_chatting_type;
+
 };
 
 #endif // MAINWINDOW_H

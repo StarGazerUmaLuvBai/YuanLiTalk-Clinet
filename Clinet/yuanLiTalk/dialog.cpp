@@ -9,6 +9,7 @@ extern QJsonObject remembered_user;
 
 extern QJsonArray friend_list;
 extern QJsonArray group_list;
+extern int current_uid;
 Dialog::Dialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::Dialog)
@@ -43,7 +44,7 @@ Dialog::Dialog(QWidget *parent) :
             ui->lineEdit_2->setText("123456");
         }
     });
-    connect(socket,tcpnetwork::loginResult,[=](QJsonObject response){
+    connect(socket,tcpnetwork::loginResult,[=](QJsonObject &response){
         qDebug()<<"aaa";
         if(response["status"]==YUANLITALK_SYSTEM_ERROR){
             QMessageBox::warning(this,"系统错误","服务器发生了错误，请重试");
@@ -108,6 +109,10 @@ Dialog::Dialog(QWidget *parent) :
         group_list=response["groupList"].toArray();
         qDebug()<<QJsonDocument(friend_list).toJson().data();
         qDebug()<<QJsonDocument(group_list).toJson().data();
+        current_uid=uid;
+        this->hide();
+        MainWindow * mw=new MainWindow;
+        mw->show();
     });
 }
 

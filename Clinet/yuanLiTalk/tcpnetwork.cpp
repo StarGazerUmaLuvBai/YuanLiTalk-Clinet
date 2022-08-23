@@ -15,6 +15,12 @@ tcpnetwork::tcpnetwork(QObject *parent) : QObject(parent){
             else if(resp_signal=="loginResult"){
                 emit loginResult(response);
             }
+            else if(resp_signal=="getMessage"){
+                emit getMessage(response);
+            }
+            else if(resp_signal=="getGroupMessage"){
+                emit getGroupMessage(response);
+            }
         }
         qDebug()<<a.data();
     });
@@ -98,7 +104,7 @@ QByteArray tcpnetwork::receiveMessage(){
 void tcpnetwork::YuanliTalkSend(const QJsonObject &json){
     QJsonDocument doc(json);
     QByteArray s = doc.toJson();
-    qDebug()<<s<<'\n'<<s.size();
+    qDebug()<<s.data()<<'\n'<<s.size();
     sendMessage(s);
 
 

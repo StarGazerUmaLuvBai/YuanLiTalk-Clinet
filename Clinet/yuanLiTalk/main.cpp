@@ -10,6 +10,7 @@ QString uuid;
 QJsonObject remembered_user;
 QJsonArray friend_list;
 QJsonArray group_list;
+int current_uid;
 int main(int argc, char *argv[])
 {
 
@@ -53,7 +54,5 @@ int main(int argc, char *argv[])
 
     Dialog w;
     w.show();
-    MainWindow mw;
-    mw.show();
     return a.exec();
 }
