@@ -28,6 +28,7 @@ public:
     ~tcpnetwork();
 signals:
     void registerResult(QJsonObject);
+    void loginResult(QJsonObject);
 };
 
 #endif // TCPNETWORK_H

@@ -15,6 +15,9 @@ tcpnetwork::tcpnetwork(QObject *parent) : QObject(parent){
             if(resp_signal=="registerResult"){
                 emit registerResult(response);
             }
+            else if(resp_signal=="loginResult"){
+                emit loginResult(response);
+            }
         }
         qDebug()<<a;
     });

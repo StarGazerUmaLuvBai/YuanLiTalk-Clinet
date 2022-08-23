@@ -3,13 +3,91 @@
 #include "tcpnetwork.h"
 
 extern tcpnetwork *socket;
+extern QString token;
+extern QString uuid;
+extern QJsonObject remembered_user;
 
 Dialog::Dialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::Dialog)
 {
     ui->setupUi(this);
-    clinet = new QTcpSocket();
+    is_token_mod=false;
+    QDir dataDir("userData");
+    if(dataDir.exists("lastLogin")){
+        QFile file(dataDir.filePath("lastLogin"));
+        file.open(QIODevice::ReadOnly | QIODevice::Text);
+        QByteArray arr = file.readAll();
+        qDebug()<<arr;
+        file.close();
+        QJsonObject lastLogin = QJsonDocument::fromJson(arr).object();
+        ui->lineEdit->setText(QString::number(lastLogin["uid"].toInt()));
+
+
+        if(lastLogin["rememberPassword"].toBool()){
+            ui->lineEdit_2->setText("123456");
+            token=lastLogin["token"].toString();
+            ui->rememberPassword->setChecked(true);
+            is_token_mod=true;
+        }
+    }
+    connect(ui->lineEdit_2,QLineEdit::textEdited,[=](){
+        is_token_mod=false;
+    });
+    connect(ui->lineEdit,QLineEdit::textEdited,[=](){
+        QString uid1 = ui->lineEdit->text();
+        if(remembered_user.find(uid1)!=remembered_user.end()&&remembered_user[uid1].toObject()["rememberPassword"].toBool()){
+            token=remembered_user[uid1].toObject()["token"].toString();
+            ui->lineEdit_2->setText("123456");
+        }
+    });
+    connect(socket,tcpnetwork::loginResult,[=](QJsonObject response){
+        qDebug()<<"aaa";
+        if(response["status"]==YUANLITALK_SYSTEM_ERROR){
+            QMessageBox::warning(this,"系统错误","服务器发生了错误，请重试");
+            return;
+        }
+        else if(response["status"]==YUANLITALK_FAILURE){
+            if(is_token_mod){
+                QMessageBox::warning(this,"错误","登录信息过期，请手动输入密码");
+            }
+            else{
+                QMessageBox::warning(this,"错误","用户名或密码错误，请重试");
+            }
+            return;
+        }
+        QMessageBox::information(this,"成功","登录成功");
+        if(response.find("token")!=response.end()){
+            token=response["token"].toString();
+            if(ui->rememberPassword->isChecked()){
+                QJsonObject user_info;
+                user_info["rememberPassword"]=true;
+                user_info["token"]=token;
+                remembered_user[QString::number(uid)]=user_info;
+
+                QFile remembered_user_file(dataDir.filePath("rememberedUser"));
+                remembered_user_file.open(QIODevice::WriteOnly | QIODevice::Text);
+                remembered_user_file.write(QJsonDocument(remembered_user).toJson(QJsonDocument::Compact));
+                remembered_user_file.close();
+
+            }
+            QFile lastLogin_file(dataDir.filePath("lastLogin"));
+            lastLogin_file.open(QIODevice::WriteOnly | QIODevice::Text);
+            QJsonObject user_info;
+            user_info["uid"]=uid;
+            if(ui->rememberPassword->isChecked()){
+                user_info["rememberPassword"]=true;
+                user_info["token"]=token;
+            }
+            else{
+                user_info["rememberPassword"]=false;
+            }
+
+            lastLogin_file.write(QJsonDocument(user_info).toJson(QJsonDocument::Compact));
+            lastLogin_file.close();
+
+        }
+    });
 }
 
 Dialog::~Dialog()
@@ -19,18 +97,27 @@ Dialog::~Dialog()
 
 void Dialog::on_pushButton_clicked()
 {
-    QString uname = ui->lineEdit->text();
-    QString passWord = ui->lineEdit_2->text();
+    uid = ui->lineEdit->text().toInt();
+    passWord = ui->lineEdit_2->text();
     //判断长度
-    if( uname.length() == 0 ){
+    if( ui->lineEdit->text().length() == 0 ){
         QMessageBox::warning(this,"输入错误","请输入用户名");
     }
     else if( passWord.length() == 0 ){
         QMessageBox::warning(this,"输入错误","请输入密码");
     }
     else {
-        clinet->connectToHost("192.168.1.107",10086);  //173.82.246.214
-        connect(clinet,SIGNAL(connected()),this,SLOT(hadConnected()));
+        QJsonObject request;
+        request["operation"]="login";
+        request["uid"]=uid;
+        if(is_token_mod){
+            request["token"]=token;
+        }
+        else{
+            request["password"]=passWord;
+        }
+        request["uuid"]=uuid;
+        socket->YuanliTalkSend(request);
     }
 }
 
@@ -40,51 +127,4 @@ void Dialog::on_pushButton_2_clicked()
     Register* reg = new Register;
     reg->show();
     this->hide();
-}
-
-
-void Dialog::hadConnected(){
-    QString uname = ui->lineEdit->text();
-    QString passWord = ui->lineEdit_2->text();
-
-    uid = uname;
-    QString data =
-            "{\"operation\" : \"login\", \"username\" : \"" +
-            uname + "\",\"password\" : \"" +
-            passWord + "\"}";
-    clinet->write(data.toUtf8());
-    connect(clinet,SIGNAL(readyRead()),this,SLOT(hadReadyRead()));
-}
-
-
-void Dialog::hadReadyRead(){
-    QByteArray recvData = clinet->readAll();
-    int size = recvData.size();
-    if(recvData.at(0) != '{' || recvData.at(size-1) != '}'){
-        QMessageBox::warning(this,"服务器信息缺失","登录失败，请重试");
-        return ;
-    }
-    else {
-        QJsonParseError parseJsonErr;
-        QJsonDocument doucument = QJsonDocument::fromJson(recvData,&parseJsonErr);
-        QJsonObject jsonObject = doucument.object();
-        /*if( jsonObject["operation"].toString() != "login" ){
-            QMessageBox::warning(this,"服务器信息错误","登录失败，请重试");
-            return ;
-        }*/
-        //else {
-            if( jsonObject["status"].toInt() != Success ){
-                QMessageBox::warning(this,"登录失败","账户或密码错误，请重试");
-                return ;
-            }
-            else {
-                QMessageBox::information(this,"登录成功","欢迎使用猿理Talk!");
-                //TODO:登录成功后接MainWindow
-                MainWindow *mWindow = new MainWindow(clinet, uid);
-                mWindow->show();
-                disconnect(clinet,0,this,0);
-                this->hide();
-            }
-        //}
-    }
 }

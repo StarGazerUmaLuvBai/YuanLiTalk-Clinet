@@ -20,11 +20,9 @@ public:
 private slots:
     void on_pushButton_clicked();
     void on_pushButton_2_clicked();
-    void hadReadyRead();
 
 private:
     Ui::Register *ui;
-    QTcpSocket *clinet;
 };
 
 #endif // REGISTER_H

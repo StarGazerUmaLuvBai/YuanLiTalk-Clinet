@@ -19,16 +19,15 @@ class Dialog : public QDialog
 public:
     explicit Dialog(QWidget *parent = 0);
     ~Dialog();
-    QString uid;
+    int uid;
+    QString passWord;
 private slots:
     void on_pushButton_clicked();
     void on_pushButton_2_clicked();
-    void hadConnected();
-    void hadReadyRead();
 
 private:
     Ui::Dialog *ui;
-    QTcpSocket *clinet;
+    bool is_token_mod;
 };
 
 #endif // DIALOG_H
