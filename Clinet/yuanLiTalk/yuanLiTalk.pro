@@ -32,7 +32,8 @@ SOURCES += main.cpp\
     talk.cpp \
     password_change.cpp \
     photo.cpp \
-    filerec.cpp
+    filerec.cpp \
+    tcpnetwork.cpp
 
 HEADERS  += dialog.h \
     register.h \
@@ -43,7 +44,8 @@ HEADERS  += dialog.h \
     talk.h \
     password_change.h \
     photo.h \
-    filerec.h
+    filerec.h \
+    tcpnetwork.h
 
 FORMS    += dialog.ui \
     register.ui \

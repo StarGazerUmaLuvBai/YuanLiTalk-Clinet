@@ -5,6 +5,9 @@
 #include "register.h"
 #include "mainwindow.h"
 
+#include "tcpnetwork.h"
+extern tcpnetwork *socket;
+
 namespace Ui {
 class Dialog;
 }

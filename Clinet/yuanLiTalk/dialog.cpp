@@ -1,5 +1,8 @@
 #include "dialog.h"
 #include "ui_dialog.h"
+#include "tcpnetwork.h"
+
+extern tcpnetwork *socket;
 
 Dialog::Dialog(QWidget *parent) :
     QDialog(parent),
@@ -43,13 +46,7 @@ void Dialog::on_pushButton_2_clicked()
 void Dialog::hadConnected(){
     QString uname = ui->lineEdit->text();
     QString passWord = ui->lineEdit_2->text();
-    /*
-    {
-      "operation":"login",
-      "userName":"",
-      "password":""
-    }
-    */
+
     uid = uname;
     QString data =
             "{\"operation\" : \"login\", \"username\" : \"" +
