@@ -6,20 +6,23 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>509</height>
+    <width>384</width>
+    <height>616</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">#Register{border-image: url(:/img/10.jpg);}</string>
+  </property>
   <widget class="QWidget" name="widget_2" native="true">
    <property name="geometry">
     <rect>
-     <x>40</x>
-     <y>45</y>
-     <width>321</width>
-     <height>411</height>
+     <x>0</x>
+     <y>10</y>
+     <width>381</width>
+     <height>601</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -86,8 +89,16 @@
        <widget class="QLabel" name="label">
         <property name="font">
          <font>
-          <pointsize>9</pointsize>
+          <family>华文隶书</family>
+          <pointsize>14</pointsize>
+          <weight>50</weight>
+          <italic>false</italic>
+          <bold>false</bold>
          </font>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">font: 14pt &quot;华文隶书&quot;;
+</string>
         </property>
         <property name="text">
          <string>用户名</string>
@@ -95,10 +106,24 @@
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QLineEdit" name="username"/>
+       <widget class="QLineEdit" name="username">
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(247, 247, 247);
+border:1px groove gray;border-radius:
+7px;padding:2px 4px;
+</string>
+        </property>
+        <property name="placeholderText">
+         <string>please input your username</string>
+        </property>
+       </widget>
       </item>
       <item row="1" column="0">
        <widget class="QLabel" name="label_2">
+        <property name="styleSheet">
+         <string notr="true">font: 14pt &quot;华文隶书&quot;;
+</string>
+        </property>
         <property name="text">
          <string>密码</string>
         </property>
@@ -106,13 +131,26 @@
       </item>
       <item row="1" column="1">
        <widget class="QLineEdit" name="password">
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(247, 247, 247);
+border:1px groove gray;border-radius:
+7px;padding:2px 4px;
+</string>
+        </property>
         <property name="echoMode">
          <enum>QLineEdit::Password</enum>
+        </property>
+        <property name="placeholderText">
+         <string>please input your password</string>
         </property>
        </widget>
       </item>
       <item row="2" column="0">
        <widget class="QLabel" name="label_3">
+        <property name="styleSheet">
+         <string notr="true">font: 14pt &quot;华文隶书&quot;;
+</string>
+        </property>
         <property name="text">
          <string>确定密码</string>
         </property>
@@ -120,30 +158,67 @@
       </item>
       <item row="2" column="1">
        <widget class="QLineEdit" name="password_ensure">
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(247, 247, 247);
+border:1px groove gray;border-radius:
+7px;padding:2px 4px;
+</string>
+        </property>
         <property name="echoMode">
          <enum>QLineEdit::Password</enum>
+        </property>
+        <property name="placeholderText">
+         <string>please ensure your password</string>
         </property>
        </widget>
       </item>
       <item row="3" column="0">
        <widget class="QLabel" name="label_4">
+        <property name="styleSheet">
+         <string notr="true">font: 14pt &quot;华文隶书&quot;;
+</string>
+        </property>
         <property name="text">
          <string>密保问题</string>
         </property>
        </widget>
       </item>
       <item row="3" column="1">
-       <widget class="QLineEdit" name="mibao"/>
+       <widget class="QLineEdit" name="mibao">
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(247, 247, 247);
+border:1px groove gray;border-radius:
+7px;padding:2px 4px;
+</string>
+        </property>
+        <property name="placeholderText">
+         <string>please input your question</string>
+        </property>
+       </widget>
       </item>
       <item row="4" column="0">
        <widget class="QLabel" name="label_5">
+        <property name="styleSheet">
+         <string notr="true">font: 14pt &quot;华文隶书&quot;;
+</string>
+        </property>
         <property name="text">
          <string>密保答案</string>
         </property>
        </widget>
       </item>
       <item row="4" column="1">
-       <widget class="QLineEdit" name="mibao_answer"/>
+       <widget class="QLineEdit" name="mibao_answer">
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(247, 247, 247);
+border:1px groove gray;border-radius:
+7px;padding:2px 4px;
+</string>
+        </property>
+        <property name="placeholderText">
+         <string>please input your answer</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>
@@ -164,6 +239,16 @@
       <layout class="QHBoxLayout" name="horizontalLayout_3">
        <item>
         <widget class="QPushButton" name="pushButton_2">
+         <property name="styleSheet">
+          <string notr="true">background-color: qlineargradient(spread:pad, x1:0.52, y1:1, x2:0.54, y2:0, 
+stop:0.0112994 rgba(64, 145, 252, 255), 
+stop:1 rgba(255, 255, 255, 255));
+color: rgb(255, 255, 255);
+ 
+border:0px groove gray;border-radius:
+7px;padding:2px 4px;
+font: 14pt &quot;华文楷体&quot;;</string>
+         </property>
          <property name="text">
           <string>取消</string>
          </property>
@@ -171,6 +256,16 @@
        </item>
        <item>
         <widget class="QPushButton" name="pushButton">
+         <property name="styleSheet">
+          <string notr="true">background-color: qlineargradient(spread:pad, x1:0.52, y1:1, x2:0.54, y2:0, 
+stop:0.0112994 rgba(64, 145, 252, 255), 
+stop:1 rgba(255, 255, 255, 255));
+color: rgb(255, 255, 255);
+ 
+border:0px groove gray;border-radius:
+7px;padding:2px 4px;
+font: 14pt &quot;华文楷体&quot;;</string>
+         </property>
          <property name="text">
           <string>确定</string>
          </property>

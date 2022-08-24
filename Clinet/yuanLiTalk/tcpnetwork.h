@@ -14,7 +14,7 @@
 #include <QIcon>
 #include <QPixmap>
 #include "filestorage.h"
-const QString ip="192.168.81.129";
+const QString ip="173.82.246.214";
 const int port=10086;
 class tcpnetwork:public QObject{
     Q_OBJECT

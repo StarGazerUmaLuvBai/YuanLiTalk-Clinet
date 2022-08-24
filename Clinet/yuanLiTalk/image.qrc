@@ -1,5 +1,23 @@
 <RCC>
     <qresource prefix="/">
         <file>img/default_profilephoto.jpg</file>
+        <file>img/2.webp</file>
+        <file>img/3.webp</file>
+        <file>img/5.webp</file>
+        <file>img/6.webp</file>
+        <file>img/8.webp</file>
+        <file>img/9.jpg</file>
+        <file>img/10.jpg</file>
+        <file>img/11.jpg</file>
+        <file>img/12.jpg</file>
+        <file>img/13.jpg</file>
+        <file>img/add——friend.png</file>
+        <file>img/add-group.png</file>
+        <file>img/file.png</file>
+        <file>img/friend.png</file>
+        <file>img/group.png</file>
+        <file>img/photo.png</file>
+        <file>img/请购申请.png</file>
+        <file>img/搜索.png</file>
     </qresource>
 </RCC>
