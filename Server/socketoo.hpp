@@ -131,6 +131,14 @@ namespace UserOperation {
     }
     return s;
   }
+  string get_username(int uid) {
+    PreparedStatement stmt(db, "SELECT username from user");
+    stmt.bind_value(1, uid);
+    if (stmt.step() == SQLITE_ROW) {
+      return stmt.get_result_string(0);
+    }
+    return "";
+  }
   bool token_check(int uid, const string& uuid, const string& token) {
     PreparedStatement check_legal_stmt(db, "SELECT * from user_device WHERE uid=? AND uuid=? AND token=?;");
     check_legal_stmt.bind_value(1, uid);
@@ -147,24 +155,25 @@ namespace UserOperation {
     upd_stmt.bind_value(3, uuid);
     upd_stmt.step();
   }
-  void send_message(int senderUid, int receiverUid, long long sendingTime, const string& message) {
+  void send_message(int senderUid, int receiverUid, long long sendingTime, const string& message, const string& file_type) {
     PreparedStatement get_id_stmt(db, "select max(id) from message;");
     int res = get_id_stmt.step();
     if (res != SQLITE_ROW && res != SQLITE_DONE) {
       throw "system error when sending message";
     }
     int message_id = (res == SQLITE_ROW ? get_id_stmt.get_result_int(0) : 0) + 1;
-    PreparedStatement insert_stmt(db, "INSERT INTO message(id, message, sender_uid,receiver_uid,sending_time) VALUES(?,?,?,?,?);");
+    PreparedStatement insert_stmt(db, "INSERT INTO message(id, message, sender_uid,receiver_uid,sending_time,type) VALUES(?,?,?,?,?,?);");
     insert_stmt.bind_value(1, message_id);
     insert_stmt.bind_value(2, message);
     insert_stmt.bind_value(3, senderUid);
     insert_stmt.bind_value(4, receiverUid);
     insert_stmt.bind_value(5, sendingTime);
+    insert_stmt.bind_value(6, file_type);
     res = insert_stmt.step();
 
     if (Client::user_record.count(receiverUid)) {
       // 如果在线直接发消息
-      Client::user_record[receiverUid]->send(json({ {"operation","getMessage"},{"senderUid",senderUid},{"sendingTime",sendingTime},{"message",message} }));
+      Client::user_record[receiverUid]->send(json({ {"signal","getMessage"},{"senderUid",senderUid},{"sendingTime",sendingTime},{"message",message},{"type",file_type} }));
       update_active_time(receiverUid, Client::user_record[receiverUid]->get_uuid(), sendingTime);
     }
     if (senderUid) { // senderUid=0为系统消息，无需更新
@@ -206,12 +215,12 @@ namespace UserOperation {
     const string password = user_request.count("password") ? md5_hash_hex(user_request["password"]) : "";
     const string token = user_request.count("token") ? user_request["token"] : "";
     const string uuid = user_request["uuid"];
+    int res;
     if (password != "") {
       // 密码登录
       PreparedStatement query_stmt(db, "SELECT * FROM user where uid = ? and password = ?;");
       query_stmt.bind_value(1, uid);
       query_stmt.bind_value(2, password);
-      int res;
       res = query_stmt.step();
       if (res != SQLITE_ROW) {
         return json({ { "status",YUANLITALK_FAILURE },{ "signal","loginResult" } });
@@ -224,21 +233,24 @@ namespace UserOperation {
       query_stmt.bind_value(1, uid);
       query_stmt.bind_value(2, uuid);
       query_stmt.bind_value(3, token);
-      int res;
       res = query_stmt.step();
       printf("%d\n", res);
       if (res != SQLITE_ROW) {
         return json({ { "status",YUANLITALK_FAILURE } ,{ "signal","loginResult" } });
       }
     }
+    PreparedStatement get_last_active_time_stmt(db, "SELECT last_active_time FROM user_device WHERE uid = ? AND uuid = ?;");
+    get_last_active_time_stmt.bind_value(1, uid);
+    get_last_active_time_stmt.bind_value(2, uuid);
 
-
+    res = get_last_active_time_stmt.step();
+    long long last_active_time = res == SQLITE_ROW ? get_last_active_time_stmt.get_result_long_long(0) : 0;
+    json j;
     if (token == "") {
       string new_token = random_str();
       PreparedStatement precheck_stmt(db, "SELECT * FROM user_device WHERE uid = ? AND uuid = ?;");
       precheck_stmt.bind_value(1, uid);
       precheck_stmt.bind_value(2, uuid);
-      int res;
       res = precheck_stmt.step();
       if (res == SQLITE_ROW) {
         PreparedStatement update_stmt(db, "UPDATE user_device SET token = ?, last_active_time=strftime('%s','now') WHERE uid = ? AND uuid = ?;");
@@ -260,8 +272,8 @@ namespace UserOperation {
       if (res != SQLITE_DONE) {
         return json({ { "status",YUANLITALK_SYSTEM_ERROR } ,{ "signal","loginResult" } });
       }
-      transaction.commit();
-      return json({ { "status",YUANLITALK_SUCCESS },{"token",new_token},{ "signal","loginResult" },{"type","passwordLogin"} });
+
+      j = json({ { "status",YUANLITALK_SUCCESS },{"token",new_token},{ "signal","loginResult" },{"type","passwordLogin"} });
     }
     else {
 
@@ -270,13 +282,79 @@ namespace UserOperation {
       update_stmt.bind_value(1, uid);
       update_stmt.bind_value(2, uuid);
 
-      int res = update_stmt.step();
+      res = update_stmt.step();
       if (res != SQLITE_DONE) {
         return json({ { "status",YUANLITALK_SYSTEM_ERROR } ,{ "signal","loginResult" } });
       }
-      transaction.commit();
-      return json({ { "status",YUANLITALK_SUCCESS } ,{ "signal","loginResult" },{"type","tokenLogin"} });
+
+      j = json({ { "status",YUANLITALK_SUCCESS } ,{ "signal","loginResult" },{"type","tokenLogin"} });
     }
+    PreparedStatement get_offline_message(db, "SELECT message,sender_uid,receiver_uid,sending_time,type FROM message WHERE sending_time > ? AND (receiver_uid=? OR sender_uid=?);");
+    get_offline_message.bind_value(1, last_active_time);
+    get_offline_message.bind_value(2, uid);
+    json offline_message = json::object({});
+    while (get_offline_message.step() == SQLITE_ROW) {
+      json temp;
+      temp["message"] = get_offline_message.get_result_string(0);
+      temp["senderUid"] = get_offline_message.get_result_int(1);
+      temp["receiverUid"] = get_offline_message.get_result_int(2);
+      temp["sendingTime"] = get_offline_message.get_result_int(3);
+      temp["type"] = get_offline_message.get_result_string(4);
+      string friend_id = to_string(temp["senderUid"] == uid ? temp["receiverUid"] : temp["senderUid"]);
+      if (!offline_message.count(friend_id)) {
+        offline_message[friend_id] = json::array();
+      }
+      offline_message[friend_id].push_back(temp);
+    }
+    PreparedStatement get_offline_group_message(db, "SELECT message,sender_uid,group_message.gid,sending_time,type FROM group_message, group_user WHERE sending_time > ? AND group_message.gid=group_user.gid AND group_user.uid=?");
+    get_offline_group_message.bind_value(1, last_active_time);
+    get_offline_group_message.bind_value(2, uid);
+
+    json offline_group_message = json::object({});
+
+    while (get_offline_group_message.step() == SQLITE_ROW) {
+      json temp;
+      temp["message"] = get_offline_message.get_result_string(0);
+      temp["senderUid"] = get_offline_message.get_result_int(1);
+      temp["gid"] = get_offline_message.get_result_int(2);
+      temp["sendingTime"] = get_offline_message.get_result_int(3);
+      temp["type"] = get_offline_message.get_result_string(4);
+
+      string gid_str = to_string(temp["gid"]);
+      if (!offline_group_message.count(gid_str)) {
+        offline_message[gid_str] = json::array();
+      }
+      offline_group_message[gid_str].push_back(temp);
+    }
+
+    json friend_list = json::array({ json::object({{"uid","0"},{"username","系统消息"}}) });
+    PreparedStatement get_friend_list(db, "SELECT uid2, username FROM friend,user WHERE uid1=? and uid2=user.uid;");
+    get_friend_list.bind_value(1, uid);
+    while (get_friend_list.step() == SQLITE_ROW) {
+      json temp;
+      temp["uid"] = get_friend_list.get_result_int(0);
+      temp["username"] = get_friend_list.get_result_string(1);
+      friend_list.push_back(temp);
+    }
+
+    json group_list = json::array({});
+    PreparedStatement get_group_list(db, "SELECT 'group'.gid,'group'.groupname FROM group_user,'group' WHERE uid=? AND 'group'.gid=group_user.gid;");
+    get_group_list.bind_value(1, uid);
+    int t;
+    while (get_group_list.step() == SQLITE_ROW) {
+      json temp;
+      temp["gid"] = get_group_list.get_result_int(0);
+      temp["groupname"] = get_group_list.get_result_string(1);
+      group_list.push_back(temp);
+    }
+    j["username"] = get_username(uid);
+    transaction.commit();
+    j["offlineMessage"] = offline_message;
+    j["offlineGroupMessage"] = offline_group_message;
+    j["friendList"] = friend_list;
+    j["groupList"] = group_list;
+
+    return j;
   }
   json u_sendMessage(const json& user_request) {
 
@@ -285,6 +363,7 @@ namespace UserOperation {
     const string message = user_request["message"];
     const string token = user_request["token"];
     const string uuid = user_request["uuid"];
+    const string file_type = user_request["type"];
     long long sendingTime = (long long)time(NULL);
     SQLTransaction transaction(db);
 
@@ -297,7 +376,7 @@ namespace UserOperation {
 
     shared_lock<shared_mutex> lock(Client::sh_mutex);
     try {
-      send_message(senderUid, receiverUid, sendingTime, message);
+      send_message(senderUid, receiverUid, sendingTime, message, file_type);
     }
     catch (const char* s) {
       printf("%s\n", s);
@@ -403,6 +482,7 @@ namespace UserOperation {
     const string message = user_request["message"];
     const string token = user_request["token"];
     const string uuid = user_request["uuid"];
+    const string file_type = user_request["type"];
     long long sendingTime = (long long)time(NULL);
 
     SQLTransaction transaction(db);
@@ -419,12 +499,13 @@ namespace UserOperation {
       return json({ { "status",YUANLITALK_SYSTEM_ERROR } });
     }
     int message_id = (res == SQLITE_ROW ? get_id_stmt.get_result_int(0) : 0) + 1;
-    PreparedStatement insert_stmt(db, "INSERT INTO group_message(id, message, sender_uid,gid,sending_time) VALUES(?,?,?,?,?);");
+    PreparedStatement insert_stmt(db, "INSERT INTO group_message(id, message, sender_uid,gid,sending_time,type) VALUES(?,?,?,?,?,?);");
     insert_stmt.bind_value(1, message_id);
     insert_stmt.bind_value(2, message);
     insert_stmt.bind_value(3, senderUid);
     insert_stmt.bind_value(4, gid);
     insert_stmt.bind_value(5, sendingTime);
+    insert_stmt.bind_value(6, file_type);
     res = insert_stmt.step();
 
     if (res != SQLITE_DONE) {
@@ -433,7 +514,6 @@ namespace UserOperation {
     shared_lock<shared_mutex> lock(Client::sh_mutex);
     PreparedStatement get_group_users_stmt(db, "SELECT uid FROM 'group_user' WHERE gid=?;");
     get_group_users_stmt.bind_value(1, gid);
-    printf("1111");
     while (get_group_users_stmt.step() == SQLITE_ROW) {
       int receiverUid = get_group_users_stmt.get_result_int(0);
       if (receiverUid == senderUid) continue;
@@ -441,7 +521,7 @@ namespace UserOperation {
       printf("receiverUid :%d\n", receiverUid);
       if (Client::user_record.count(receiverUid)) {
         // 如果在线直接发消息
-        Client::user_record[receiverUid]->send(json({ {"operation","getGroupMessage"},{"senderUid",senderUid},{"gid",gid},{"sendingTime",sendingTime},{"message",message} }));
+        Client::user_record[receiverUid]->send(json({ {"signal","getGroupMessage"},{"senderUid",senderUid},{"gid",gid},{"sendingTime",sendingTime},{"message",message},{"type",file_type} }));
 
         update_active_time(receiverUid, Client::user_record[receiverUid]->get_uuid(), sendingTime);
 
@@ -596,7 +676,7 @@ namespace UserOperation {
         new_friend_stmt.bind_value(1, uid);
         new_friend_stmt.bind_value(2, fromWho);
         new_friend_stmt.step();
-        send_message(0, fromWho, time(NULL), to_string(uid) + "同意了你的好友申请");
+        send_message(0, fromWho, time(NULL), to_string(uid) + "同意了你的好友申请", "text");
       }
       catch (const char* s) {
         printf("%s\n", s);
@@ -605,7 +685,7 @@ namespace UserOperation {
     }
     else {
       try {
-        send_message(0, fromWho, time(NULL), to_string(uid) + "拒绝了你的好友申请");
+        send_message(0, fromWho, time(NULL), to_string(uid) + "拒绝了你的好友申请", "text");
       }
       catch (const char* s) {
         printf("%s\n", s);
@@ -647,7 +727,7 @@ namespace UserOperation {
         new_member_stmt.bind_value(1, gid);
         new_member_stmt.bind_value(2, fromWho);
         new_member_stmt.step();
-        send_message(0, fromWho, time(NULL), "你已进入群聊" + to_string(gid));
+        send_message(0, fromWho, time(NULL), "你已进入群聊" + to_string(gid), "text");
       }
       catch (const char* s) {
         printf("%s\n", s);
@@ -656,7 +736,7 @@ namespace UserOperation {
     }
     else {
       try {
-        send_message(0, fromWho, time(NULL), to_string(uid) + "群" + to_string(gid) + "拒绝了你");
+        send_message(0, fromWho, time(NULL), to_string(uid) + "群" + to_string(gid) + "拒绝了你", "text");
       }
       catch (const char* s) {
         printf("%s\n", s);
@@ -900,6 +980,7 @@ void ConnectionObject::send(const char* s, int len) {
   printf("No I am sending %d\n", len);
   memcpy(buff, &len_1, 4);
   memcpy(buff + 4, s, len);
+  printf("%s\n", buff + 4);
   int res = fixed_len_send(buff, len + 4);
   delete buff;
   if (res < 0) {

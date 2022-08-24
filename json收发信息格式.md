@@ -92,11 +92,12 @@
   "senderUid":100000,
   "receiverUid":100001,
   "message":"hello world",
+  "type":"text",
   "token":"h-%+*592j||q5XL}X,[wPAN0t.XBtS0T:$!JiT}v%^zY(fv,Oj|",
   "uuid":"F6C2CCFB-DD10-11EA-80DE-5405DB150132"
 }
 ```
-
+type可以是text或picture。
 ### 返回数据
 
 
@@ -192,6 +193,7 @@
   "senderUid":100000,
   "gid":123456,
   "message":"大家好呀~",
+  "type":"text",
   "token":"h-%+*592j||q5XL}X,[wPAN0t.XBtS0T:$!JiT}v%^zY(fv,Oj|",
   "uuid":"F6C2CCFB-DD10-11EA-80DE-5405DB150132"
 }
@@ -420,6 +422,8 @@
 + `YUANLITALK_SYSTEM_ERROR`：系统错误
 + `YUANLITALK_WRONG_TOKEN`：token信息无效
 
+
+## 
 
 # 本地json数据
 
