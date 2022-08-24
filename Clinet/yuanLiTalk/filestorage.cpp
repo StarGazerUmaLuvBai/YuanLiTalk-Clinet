@@ -1,6 +1,4 @@
 #include "filestorage.h"
-#include <QDebug>
-#include <QJsonDocument>
 QJsonArray get_history_message(int uid,int friend_uid){
     QDir dataDir;
     if(!dataDir.exists("userData")){
@@ -143,4 +141,15 @@ void update_group_message(int uid,int gid,const QJsonArray &a){
     file_1.open(QIODevice::WriteOnly | QIODevice::Text);
     file_1.write(QJsonDocument(org).toJson(QJsonDocument::Compact));
     file_1.close();
+}
+
+QByteArray pixmap_to_base64(const QPixmap &pixmap){
+
+    QByteArray bytes;
+    QBuffer buffer(&bytes);
+    buffer.open(QIODevice::WriteOnly);
+    pixmap.save(&buffer, "PNG");
+    bytes.append(buffer.data());
+
+    return bytes.toBase64();
 }

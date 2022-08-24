@@ -80,7 +80,7 @@ MainWindow::MainWindow(QWidget *parent) :
         int gid=item.toObject()["gid"].toInt();
         connect(p,QPushButton::clicked,[=](){
             QVBoxLayout *m= new QVBoxLayout();
-             m->setAlignment(Qt::AlignTop);
+            m->setAlignment(Qt::AlignTop);
             QPushButton *q;
             QJsonArray arr = get_history_group_message(current_uid,gid);
             for(QJsonValue item:arr){
@@ -121,7 +121,6 @@ MainWindow::MainWindow(QWidget *parent) :
             QPushButton *q=new QPushButton;
             q->setText(QString::number(resp["senderUid"].toInt())+":"+resp["message"].toString());
             ui->message_scroll->layout()->addWidget(q);
-
         }
     });
 

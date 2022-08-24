@@ -4,6 +4,7 @@
 #include "all.h"
 #include "dialog.h"
 #include "tcpnetwork.h"
+#include "filestorage.h"
 
 namespace Ui {
 class Register;
@@ -23,6 +24,8 @@ private slots:
 
 private:
     Ui::Register *ui;
+    QString profilephoto_name;
+    QString profilephoto_base64;
 };
 
 #endif // REGISTER_H
