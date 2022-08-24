@@ -27,8 +27,10 @@ public:
     explicit tcpnetwork(QObject *parent = nullptr);
     ~tcpnetwork();
 signals:
-    void registerResult(QJsonObject);
-    void loginResult(QJsonObject);
+    void registerResult(QJsonObject&);
+    void loginResult(QJsonObject&);
+    void getMessage(QJsonObject&);
+    void getGroupMessage(QJsonObject&);
 };
 
 #endif // TCPNETWORK_H

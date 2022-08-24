@@ -1,12 +1,15 @@
 #include "dialog.h"
 #include "ui_dialog.h"
 #include "tcpnetwork.h"
-
+#include "filestorage.h"
 extern tcpnetwork *socket;
 extern QString token;
 extern QString uuid;
 extern QJsonObject remembered_user;
 
+extern QJsonArray friend_list;
+extern QJsonArray group_list;
+extern int current_uid;
 Dialog::Dialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::Dialog)
@@ -41,7 +44,7 @@ Dialog::Dialog(QWidget *parent) :
             ui->lineEdit_2->setText("123456");
         }
     });
-    connect(socket,tcpnetwork::loginResult,[=](QJsonObject response){
+    connect(socket,tcpnetwork::loginResult,[=](QJsonObject &response){
         qDebug()<<"aaa";
         if(response["status"]==YUANLITALK_SYSTEM_ERROR){
             QMessageBox::warning(this,"系统错误","服务器发生了错误，请重试");
@@ -85,8 +88,31 @@ Dialog::Dialog(QWidget *parent) :
 
             lastLogin_file.write(QJsonDocument(user_info).toJson(QJsonDocument::Compact));
             lastLogin_file.close();
-
         }
+        // 处理离线是收到的消息
+
+        QJsonObject offlineMessage= response["offlineMessage"].toObject();
+        QStringList offlineMessage_uid = offlineMessage.keys();
+        for(QString friend_uid:offlineMessage_uid){
+            update_message(uid,friend_uid.toInt(),offlineMessage[friend_uid].toArray());
+        }
+
+        QJsonObject offlineGroupMessage = response["offlineGroupMessage"].toObject();
+        QStringList offlineGroupMessage_gid = offlineMessage.keys();
+        for(QString gid:offlineGroupMessage_gid){
+            update_message(uid,gid.toInt(),offlineMessage[gid].toArray());
+        }
+
+        // 处理好友和群聊列表
+
+        friend_list=response["friendList"].toArray();
+        group_list=response["groupList"].toArray();
+        qDebug()<<QJsonDocument(friend_list).toJson().data();
+        qDebug()<<QJsonDocument(group_list).toJson().data();
+        current_uid=uid;
+        this->hide();
+        MainWindow * mw=new MainWindow;
+        mw->show();
     });
 }
 

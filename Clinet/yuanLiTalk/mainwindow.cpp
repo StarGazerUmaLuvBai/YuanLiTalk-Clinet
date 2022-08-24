@@ -1,154 +1,164 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "tcpnetwork.h"
+#include <QJsonValue>
+#include <QJsonObject>
+#include <QVBoxLayout>
+#include <QJsonArray>
+#include <QPushButton>
+#include <QDateTime>
+#include "filestorage.h"
+extern tcpnetwork *socket;
+extern QString token;
+extern QString uuid;
+extern QJsonObject remembered_user;
+
+extern QJsonArray friend_list;
+extern QJsonArray group_list;
+
+extern int current_uid;
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
+
     ui->setupUi(this);
-    setWindowFlags(Qt::FramelessWindowHint);
-}
-MainWindow::MainWindow(QTcpSocket *sock, QString u, QWidget *parent) :
-    QMainWindow(parent),
-    ui(new Ui::MainWindow)
-{
-    ui->setupUi(this);
-    setWindowFlags(Qt::FramelessWindowHint);
-    uid = u;
-    clinet = sock;
-    QString packData = "{\"operation\" : \"getInformation\" , \"uid\" : \"" + uid + "\"}";
-    clinet->write(packData.toUtf8());
-    connect(clinet, SIGNAL(readyRead()), this, SLOT(hadReadyRead()));
+    current_chatting_id=-1;
+
+    QVBoxLayout *l= new QVBoxLayout();
+    QPushButton *p;
+    l->setAlignment(Qt::AlignTop);
+    for(QJsonValue item:friend_list){
+
+        p=new QPushButton;
+        qDebug()<<QJsonDocument(item.toObject()).toJson();
+        p->setText(item.toObject()["username"].toString());
+        p->setMinimumHeight(50);
+        int uid=item.toObject()["uid"].toInt();
+        connect(p,QPushButton::clicked,[=](){
+            QVBoxLayout *m= new QVBoxLayout();
+            m->setAlignment(Qt::AlignTop);
+            qDebug()<<"进去了";
+            QPushButton *q;
+            QJsonArray arr = get_history_message(current_uid,uid);
+            for(QJsonValue item:arr){
+                QJsonObject obj= item.toObject();
+                q=new QPushButton;
+                q->setText(QString::number(obj["senderUid"].toInt())+":"+obj["message"].toString());
+                m->addWidget(q);
+
+            }
+            ui->Messages->setLayout(m);
+            current_chatting_type="friend";
+            current_chatting_id=uid;
+        });
+        l->addWidget(p);
+    }
+    ui->friends_scroll->setLayout(l);
+
+    l= new QVBoxLayout();
+    l->setAlignment(Qt::AlignTop);
+    qDebug()<<"glsize:"<<group_list.size();
+    for(QJsonValue item:group_list){
+
+        p=new QPushButton;
+        p->setText(item.toObject()["groupname"].toString());
+        p->setMinimumHeight(50);
+        int gid=item.toObject()["gid"].toInt();
+        connect(p,QPushButton::clicked,[=](){
+            QVBoxLayout *m= new QVBoxLayout();
+             m->setAlignment(Qt::AlignTop);
+            QPushButton *q;
+            QJsonArray arr = get_history_group_message(current_uid,gid);
+            for(QJsonValue item:arr){
+                QJsonObject obj= item.toObject();
+                q=new QPushButton;
+                q->setText(QString::number(obj["senderUid"].toInt())+":"+obj["message"].toString());
+                m->addWidget(q);
+            }
+            ui->Messages->setLayout(m);
+            current_chatting_type="group";
+            current_chatting_id=gid;
+        });
+        l->addWidget(p);
+    }
+    ui->group_scroll->setLayout(l);
+
+    connect(socket,tcpnetwork::getMessage,[=](const QJsonObject &resp){
+        QJsonObject msg;
+        msg["senderUid"]=resp["senderUid"];
+        msg["sendingTime"]=resp["sendingTime"];
+        msg["message"]=resp["message"];
+        msg["type"]=resp["type"];
+        msg["receiverUid"]=current_uid;
+        QJsonArray msg_arr;
+        msg_arr.push_back(msg);
+        update_message(current_uid,msg["senderUid"].toInt(),msg_arr);
+        if(current_chatting_type=="friend"&&current_chatting_id==resp["senderUid"].toInt()){
+            QPushButton *q=new QPushButton;
+            q->setText(QString::number(resp["senderUid"].toInt())+":"+resp["message"].toString());
+            ui->Messages->layout()->addWidget(q);
+        }
+    });
+
+    connect(socket,tcpnetwork::getGroupMessage,[=](const QJsonObject &resp){
+        QJsonObject msg;
+        msg["senderUid"]=resp["senderUid"];
+        msg["sendingTime"]=resp["sendingTime"];
+        msg["message"]=resp["message"];
+        msg["type"]=resp["type"];
+        msg["gid"]=resp["gid"];
+        QJsonArray msg_arr;
+        msg_arr.push_back(msg);
+        update_group_message(current_uid,msg["gid"].toInt(),msg_arr);
+        if(current_chatting_type=="group"&&current_chatting_id==resp["senderUid"].toInt()){
+            QPushButton *q=new QPushButton;
+            q->setText(QString::number(resp["senderUid"].toInt())+":"+resp["message"].toString());
+            ui->Messages->layout()->addWidget(q);
+        }
+    });
+
+    connect(ui->sendMsg,QPushButton::clicked,[=](){
+        if(ui->textEdit->toPlainText()==""||current_chatting_id==-1){
+            return;
+        }
+        if(current_chatting_type=="friend"){
+            QJsonObject msg;
+            QJsonObject req;
+            msg["senderUid"]=req["senderUid"]=current_uid;
+            msg["sendingTime"]=(long long)QDateTime::currentSecsSinceEpoch();
+            msg["message"]=req["message"]=ui->textEdit->toPlainText();
+            msg["type"]=req["type"]="text";
+            msg["receiverUid"]=req["receiverUid"]=current_chatting_id;
+            req["uuid"]=uuid;
+            req["token"]=token;
+            req["operation"]="sendMessage";
+            socket->YuanliTalkSend(req);
+            QJsonArray msg_arr;
+            msg_arr.push_back(msg);
+            update_message(current_uid,current_chatting_id,msg_arr);
+        }
+        else{
+            QJsonObject msg;
+            QJsonObject req;
+            msg["senderUid"]=req["senderUid"]=current_uid;
+            msg["sendingTime"]=(long long)QDateTime::currentSecsSinceEpoch();
+            msg["message"]=req["message"]=ui->textEdit->toPlainText();
+            msg["type"]=req["type"]="text";
+            msg["gid"]=current_chatting_id;
+            req["uuid"]=uuid;
+            req["token"]=token;
+            req["operation"]="sendGroupMessage";
+            socket->YuanliTalkSend(req);
+            QJsonArray msg_arr;
+            msg_arr.push_back(msg);
+            update_message(current_uid,current_chatting_id,msg_arr);
+        }
+    });
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
-}
-
-void MainWindow::hadReadyRead()
-{
-    QByteArray msgArr = clinet->readAll();
-    QJsonParseError parseJsonErr;
-    QJsonDocument doucument = QJsonDocument::fromJson(msgArr,&parseJsonErr);
-    QJsonObject jsonObject = doucument.object();
-    QString operation = jsonObject["operation"].toString();
-    if(operation == "information")     //接收协议：{"operation" : "information" , "friendNumber" : 3 , "friendName" : ["user1","user2","user3"] , "friendID" : ["1","2","3"]}
-    {
-        int fNum = jsonObject["friendNumber"].toInt();
-        QJsonValue NAME = jsonObject.value("friendName");
-        QJsonValue i_D = jsonObject.value("friendID");  //id是本地头像的编号
-        QJsonArray nameAry = NAME.toArray();
-        QJsonArray idAry = i_D.toArray();
-        QList<QString>nameList;
-
-        QStringList iconNameList;
-        int i = 0;
-        for(i = 0;i < fNum; i++)
-        {
-            QJsonValue nitem = nameAry.at(i);
-            QJsonValue iditem = idAry.at(i);
-            nameList<<nitem.toString();
-            iconNameList<<iditem.toString();
-        }
-        QVector<QToolButton*> vToolBtn;
-        for(i=0;i<fNum;i++)
-        {
-            //设置头像
-            QToolButton *btn =new QToolButton;
-            btn->setText(nameList[i]);//文字
-            //头像:/image/"
-            QString str=QString(":/image/image_test_%1.jpg").arg(iconNameList.at(i));
-            btn->setIcon(QPixmap(str));
-            //头像大小
-            btn->setIconSize(QPixmap(str).size());
-            //设置按钮风格 透明
-            btn->setAutoRaise(true);
-            btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-            //加到 垂直布局
-            ui->verticalLayout->addWidget(btn);
-            //容器保存住九个按钮
-            vToolBtn.push_back(btn);
-        }
-        for(int i=0;i<vToolBtn.size();i++)
-        {
-            connect(vToolBtn[i], &QToolButton::clicked,[=]()mutable
-            {
-
-                //弹出聊天对话框
-                //构造聊天窗口时告诉名字
-                Talk * widget1=new Talk(clinet,vToolBtn[i]->text(),uid);
-                widget1->setWindowTitle(vToolBtn[i]->text());
-                widget1->setWindowIcon(vToolBtn[i]->icon());
-                connect(this, SIGNAL(sendRevMsgSig(QString)), widget1, SLOT(hadReadyRec(QString)));
-                widget1->show();
-            });
-
-        }
-    }
-    else if(operation == "recMessage")
-    {
-        QString msg = jsonObject["message"].toString();
-        emit sendRevMsgSig(msg);
-    }
-    else if(operation == "photoChange")
-    {
-        int status = jsonObject["status"].toInt();
-        emit photoChange(status);
-    }
-    else if(operation == "passwordChange")
-    {
-        int status = jsonObject["status"].toInt();
-        emit passwordChange(status);
-    }
-}
-
-void MainWindow::idChange(QString id)
-{
-    ID = id;
-}
-
-void MainWindow::on_minsize_clicked()
-{
-    showMinimized();
-}
-
-void MainWindow::on_maxsize_clicked()
-{
-    if(showflag == 0)
-    {
-        showFullScreen();
-        showflag = 1;
-    }
-    else
-    {
-        showNormal();
-        showflag = 0;
-    }
-}
-
-void MainWindow::on_close_clicked()
-{
-    close();
-}
-
-void MainWindow::on_information_clicked()
-{
-    information *inForm = new information(clinet, ID, uid);
-    connect(inForm, SIGNAL(IDchange(QString)), this, SLOT(idChange(QString)));
-    connect(this, SIGNAL(passwordChange(int)), inForm, SLOT(msgToPwordchange(int)));
-    connect(this, SIGNAL(photoChange(int)), inForm, SLOT(msgToPhchange(int)));
-    inForm->show();
-}
-
-void MainWindow::on_file_reserve_clicked()
-{
-    file *fDia = new file();
-    fDia->show();
-}
-
-void MainWindow::on_file_rec_clicked()
-{
-    fileRec *fRDia = new fileRec;
-    fRDia->show();
 }

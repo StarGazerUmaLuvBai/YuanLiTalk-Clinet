@@ -1,8 +1,5 @@
 #include "tcpnetwork.h"
 
-
-
-
 tcpnetwork::tcpnetwork(QObject *parent) : QObject(parent){
     socket=new QTcpSocket(this);
     socket->connectToHost(ip,port);
@@ -18,8 +15,14 @@ tcpnetwork::tcpnetwork(QObject *parent) : QObject(parent){
             else if(resp_signal=="loginResult"){
                 emit loginResult(response);
             }
+            else if(resp_signal=="getMessage"){
+                emit getMessage(response);
+            }
+            else if(resp_signal=="getGroupMessage"){
+                emit getGroupMessage(response);
+            }
         }
-        qDebug()<<a;
+        qDebug()<<a.data();
     });
 }
 
@@ -30,7 +33,7 @@ int tcpnetwork::fixed_len_receive(char* s, int size){
     int left =size;
     char *p=s;
     while (left > 0) {
-
+        qDebug()<<left;
         int len = socket->read(p,left);
         if (len < 0) {
             return -1;
@@ -83,22 +86,25 @@ int tcpnetwork::sendMessage(const QByteArray &s){
 }
 QByteArray tcpnetwork::receiveMessage(){
     qint32 size;
-    qDebug()<<"receive";
+
     fixed_len_receive((char *)&size,4);
-    qDebug()<<"receive1";
+
     size = qFromBigEndian(size);
     char *s=new char[size];
+    qDebug()<<size;
     if(fixed_len_receive(s,size)!=size){
         qDebug()<< "接收失败";
     }
     QByteArray res(s,size);
     delete s;
+
+    qDebug()<<size;
     return res;
 }
 void tcpnetwork::YuanliTalkSend(const QJsonObject &json){
     QJsonDocument doc(json);
     QByteArray s = doc.toJson();
-    qDebug()<<s<<'\n'<<s.size();
+    qDebug()<<s.data()<<'\n'<<s.size();
     sendMessage(s);
 
 
