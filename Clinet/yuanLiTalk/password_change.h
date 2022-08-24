@@ -14,7 +14,6 @@ class password_change : public QDialog
 
 public:
     explicit password_change(QWidget *parent = 0);
-    explicit password_change(QTcpSocket *sock, QWidget *parent = 0);
     ~password_change();
 
 private slots:
@@ -22,7 +21,6 @@ private slots:
 
     void on_yes_clicked();
 
-    void RecStatus(int);
 private:
     Ui::password_change *ui;
     QTcpSocket *clinet;

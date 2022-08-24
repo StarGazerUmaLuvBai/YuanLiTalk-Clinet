@@ -11,7 +11,9 @@
 #include <QtEndian>
 #include <QJsonValue>
 #include <QJsonObject>
-
+#include <QIcon>
+#include <QPixmap>
+#include "filestorage.h"
 const QString ip="192.168.81.129";
 const int port=10086;
 class tcpnetwork:public QObject{
@@ -26,12 +28,25 @@ public:
     void YuanliTalkSend(const QJsonObject &json);
     explicit tcpnetwork(QObject *parent = nullptr);
     ~tcpnetwork();
+    QMap<int,QPixmap> profile_map;
 signals:
+    void receiveDataDone(QByteArray);
     void registerResult(QJsonObject&);
     void loginResult(QJsonObject&);
     void getMessage(QJsonObject&);
     void getGroupMessage(QJsonObject&);
     void searchUserResult(QJsonObject&);
+    void searchGroupResult(QJsonObject&);
+    void addUserResult(QJsonObject&);
+    void addGroupResult(QJsonObject&);
+    void addGroupRequest(QJsonObject&);
+    void friendRequest(QJsonObject&);
+    void getMibaoResult(QJsonObject&);
+    void changePasswordResult(QJsonObject&);
+    void getAllProfileResult(QJsonObject&);
+private:
+    int left_read_len;
+    QByteArray m_buff;
 };
 
 #endif // TCPNETWORK_H

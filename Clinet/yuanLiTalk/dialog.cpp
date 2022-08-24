@@ -2,6 +2,7 @@
 #include "ui_dialog.h"
 #include "tcpnetwork.h"
 #include "filestorage.h"
+#include "password_change.h"
 extern tcpnetwork *socket;
 extern QString token;
 extern QString uuid;
@@ -9,6 +10,9 @@ extern QJsonObject remembered_user;
 
 extern QJsonArray friend_list;
 extern QJsonArray group_list;
+
+extern QJsonArray pending_friend_list;
+extern QJsonArray pending_group_list;
 extern int current_uid;
 extern QString current_username;
 Dialog::Dialog(QWidget *parent) :
@@ -43,6 +47,9 @@ Dialog::Dialog(QWidget *parent) :
         if(remembered_user.find(uid1)!=remembered_user.end()&&remembered_user[uid1].toObject()["rememberPassword"].toBool()){
             token=remembered_user[uid1].toObject()["token"].toString();
             ui->lineEdit_2->setText("123456");
+        }
+        else{
+            ui->lineEdit_2->setText("");
         }
     });
     connect(socket,tcpnetwork::loginResult,[=](QJsonObject &response){
@@ -99,17 +106,19 @@ Dialog::Dialog(QWidget *parent) :
         }
 
         QJsonObject offlineGroupMessage = response["offlineGroupMessage"].toObject();
-        QStringList offlineGroupMessage_gid = offlineMessage.keys();
+
+
+        QStringList offlineGroupMessage_gid = offlineGroupMessage.keys();
         for(QString gid:offlineGroupMessage_gid){
-            update_message(uid,gid.toInt(),offlineMessage[gid].toArray());
+            update_group_message(uid,gid.toInt(),offlineGroupMessage[gid].toArray());
         }
 
         // 处理好友和群聊列表
 
         friend_list=response["friendList"].toArray();
         group_list=response["groupList"].toArray();
-        qDebug()<<QJsonDocument(friend_list).toJson().data();
-        qDebug()<<QJsonDocument(group_list).toJson().data();
+        pending_friend_list=response["pendingFriendList"].toArray();
+        pending_group_list=response["pendingGroupList"].toArray();
         current_uid=uid;
         current_username=response["username"].toString();
         this->hide();
@@ -154,5 +163,12 @@ void Dialog::on_pushButton_2_clicked()
 {
     Register* reg = new Register;
     reg->show();
-    this->hide();
+    this->close();
+}
+
+void Dialog::on_pushButton_3_clicked()
+{
+    password_change* pscg = new password_change();
+    pscg->show();
+    this->close();
 }

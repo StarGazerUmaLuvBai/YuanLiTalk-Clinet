@@ -105,7 +105,7 @@ QJsonArray get_history_group_message(int uid,int gid){
 
 void update_group_message(int uid,int gid,const QJsonArray &a){
     QDir dataDir;
-
+    qDebug()<<"aaa"<<a.size();
     if(!dataDir.exists("userData")){
         dataDir.mkdir("userData");
     }
@@ -152,4 +152,15 @@ QByteArray pixmap_to_base64(const QPixmap &pixmap){
     bytes.append(buffer.data());
 
     return bytes.toBase64();
+}
+QPixmap base64_to_pixmap(const QByteArray &bytes_bs64){
+
+    QByteArray bytes=QByteArray::fromBase64(bytes_bs64);
+    QBuffer buffer(&bytes);
+
+    buffer.open(QIODevice::ReadOnly);
+
+    QImage image = QImageReader(&buffer, "PNG").read();
+
+    return QPixmap::fromImage(image);
 }

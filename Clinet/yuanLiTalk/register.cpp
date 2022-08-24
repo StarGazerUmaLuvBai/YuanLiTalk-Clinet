@@ -1,6 +1,5 @@
 #include "register.h"
 #include "ui_register.h"
-
 Register::Register(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::Register)
@@ -20,7 +19,7 @@ Register::Register(QWidget *parent) :
 
         //定义文件对话框标题
         fileDialog->setWindowTitle(QStringLiteral("选择文件"));
-
+        fileDialog->setNameFilter("*.png *.jpg");
         //设置打开的文件路径
         fileDialog->setDirectory("./");
 
@@ -37,15 +36,17 @@ Register::Register(QWidget *parent) :
             if(fileNames.size()){
                 profilephoto_name=fileNames[0];
                 qDebug()<<profilephoto_name;
+
+                QPixmap qp = QPixmap(profilephoto_name).scaled(QSize(80,80),Qt::KeepAspectRatioByExpanding,Qt::SmoothTransformation);
+                ui->profilephoto_btn->setIcon(QIcon(qp));
+                ui->profilephoto_btn->setIconSize(QSize(80,80));
+                ui->profilephoto_btn->setFlat(true);
+                ui->profilephoto_btn->setText("");
+                profilephoto_base64 = pixmap_to_base64(qp);
             }
         }
         delete fileDialog;
-        QPixmap qp = QPixmap(profilephoto_name).scaled(QSize(80,80),Qt::KeepAspectRatioByExpanding,Qt::SmoothTransformation);
-        ui->profilephoto_btn->setIcon(QIcon(qp));
-        ui->profilephoto_btn->setIconSize(QSize(80,80));
-        ui->profilephoto_btn->setFlat(true);
-        ui->profilephoto_btn->setText("");
-        profilephoto_base64 = pixmap_to_base64(qp);
+
     });
 }
 
@@ -84,7 +85,7 @@ void Register::on_pushButton_clicked()
         request["password"]=passWord;
         request["mibao"]=mibao;
         request["mibaoAnswer"]=mibao_answer;
-        request["profilephotos"]=profilephoto_base64;
+        request["profilephoto"]=profilephoto_base64;
         socket->YuanliTalkSend(request);
 
     }
@@ -94,7 +95,8 @@ void Register::on_pushButton_2_clicked()
 {
     Dialog * login = new Dialog;
     login->show();
-    this->hide();
+    this->close();
+
 }
 
 

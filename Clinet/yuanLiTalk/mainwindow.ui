@@ -70,7 +70,7 @@
             </property>
             <layout class="QHBoxLayout" name="horizontalLayout">
              <item>
-              <widget class="QPushButton" name="pushButton">
+              <widget class="QPushButton" name="profile">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
                  <horstretch>0</horstretch>
@@ -79,12 +79,27 @@
                </property>
                <property name="minimumSize">
                 <size>
-                 <width>50</width>
-                 <height>50</height>
+                 <width>60</width>
+                 <height>60</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>60</width>
+                 <height>60</height>
                 </size>
                </property>
                <property name="text">
-                <string>PushButton</string>
+                <string/>
+               </property>
+               <property name="iconSize">
+                <size>
+                 <width>40</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="flat">
+                <bool>true</bool>
                </property>
               </widget>
              </item>
@@ -136,7 +151,7 @@
              </size>
             </property>
             <property name="currentIndex">
-             <number>2</number>
+             <number>0</number>
             </property>
             <widget class="QWidget" name="Friends">
              <attribute name="title">
@@ -169,7 +184,7 @@
                    <x>0</x>
                    <y>0</y>
                    <width>192</width>
-                   <height>387</height>
+                   <height>377</height>
                   </rect>
                  </property>
                 </widget>
@@ -211,7 +226,7 @@
                    <x>0</x>
                    <y>0</y>
                    <width>192</width>
-                   <height>387</height>
+                   <height>377</height>
                   </rect>
                  </property>
                 </widget>
@@ -306,16 +321,13 @@
                        <x>0</x>
                        <y>0</y>
                        <width>180</width>
-                       <height>324</height>
+                       <height>314</height>
                       </rect>
                      </property>
                     </widget>
                    </widget>
                   </item>
                  </layout>
-                 <zorder>search_friend_key</zorder>
-                 <zorder>scrollArea_3</zorder>
-                 <zorder>btn_search</zorder>
                  <zorder>scrollArea_3</zorder>
                  <zorder>widget_8</zorder>
                 </widget>
@@ -349,8 +361,8 @@
                       <rect>
                        <x>0</x>
                        <y>0</y>
-                       <width>180</width>
-                       <height>353</height>
+                       <width>98</width>
+                       <height>28</height>
                       </rect>
                      </property>
                     </widget>
@@ -450,13 +462,13 @@
                     <property name="widgetResizable">
                      <bool>true</bool>
                     </property>
-                    <widget class="QWidget" name="search_scroll_2">
+                    <widget class="QWidget" name="search_group_scroll">
                      <property name="geometry">
                       <rect>
                        <x>0</x>
                        <y>0</y>
                        <width>180</width>
-                       <height>301</height>
+                       <height>291</height>
                       </rect>
                      </property>
                     </widget>
@@ -491,8 +503,8 @@
                       <rect>
                        <x>0</x>
                        <y>0</y>
-                       <width>180</width>
-                       <height>353</height>
+                       <width>98</width>
+                       <height>28</height>
                       </rect>
                      </property>
                     </widget>
@@ -549,13 +561,6 @@
                   <widget class="QPushButton" name="sendPic">
                    <property name="text">
                     <string>图片</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QPushButton" name="sendFile">
-                   <property name="text">
-                    <string>文件</string>
                    </property>
                   </widget>
                  </item>

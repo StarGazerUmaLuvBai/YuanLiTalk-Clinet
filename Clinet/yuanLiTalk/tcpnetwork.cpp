@@ -3,8 +3,25 @@
 tcpnetwork::tcpnetwork(QObject *parent) : QObject(parent){
     socket=new QTcpSocket(this);
     socket->connectToHost(ip,port);
+    socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, 1024*1024*100);
+    qDebug()<<"b"<<socket->readBufferSize();
+
+    left_read_len=0;
     connect(socket,QTcpSocket::readyRead,[=](){
-        QByteArray a=receiveMessage();
+        m_buff.append(socket->readAll());
+        if(m_buff.size()<4) return;
+        quint32 len = qFromBigEndian(*(qint32*)m_buff.data());
+        if (len > 1024 * 1024 * 1024) throw "错误数据";
+        if (m_buff.size() >= len+4)
+        {
+            emit receiveDataDone(m_buff.mid(4,len));
+            m_buff.remove(0,len+4);
+        }
+
+    });
+    connect(this,tcpnetwork::receiveDataDone,[=](QByteArray a){
+
+        // QByteArray a=receiveMessage();
         QJsonDocument doc=QJsonDocument::fromJson(a);
         QJsonObject response=doc.object();
         if(response.find("signal")!=response.end()){
@@ -24,8 +41,44 @@ tcpnetwork::tcpnetwork(QObject *parent) : QObject(parent){
             else if(resp_signal=="searchUserResult"){
                 emit searchUserResult(response);
             }
+            else if(resp_signal=="searchGroupResult"){
+                emit searchGroupResult(response);
+            }
+            else if(resp_signal=="addUserResult"){
+                emit addUserResult(response);
+            }
+            else if(resp_signal=="addGroupResult"){
+                emit addGroupResult(response);
+            }
+            else if(resp_signal=="friendRequest"){
+                emit friendRequest(response);
+            }
+            else if(resp_signal=="getMibaoResult"){
+                emit getMibaoResult(response);
+            }
+            else if(resp_signal=="changePasswordResult"){
+                emit changePasswordResult(response);
+            }
+            else if(resp_signal=="getAllProfileResult"){
+                emit getAllProfileResult(response);
+            }
         }
         qDebug()<<a.data();
+    });
+
+    connect(this,getAllProfileResult,[=](const QJsonObject&resp){
+        QJsonObject profiles=resp["profiles"].toObject();
+        QStringList keys=profiles.keys();
+        for(QString key:keys){
+            if(profiles[key]==""){
+                profile_map[key.toInt()]=QPixmap(":/img/default_profilephoto.jpg","jpg");
+            }
+            else{
+                profile_map[key.toInt()]= base64_to_pixmap(profiles[key].toString().toUtf8());
+            }
+
+        }
+
     });
 }
 
@@ -43,6 +96,7 @@ int tcpnetwork::fixed_len_receive(char* s, int size){
         }
         else if (len == 0) {
             continue;
+            //throw "接受失败"; //continue;
         }
         else {
             p += len;
@@ -51,6 +105,7 @@ int tcpnetwork::fixed_len_receive(char* s, int size){
     }
     return size;
 }
+
 
 int tcpnetwork::fixed_len_send(const char* s, int size){
     int left = size;
@@ -109,8 +164,4 @@ void tcpnetwork::YuanliTalkSend(const QJsonObject &json){
     QByteArray s = doc.toJson();
     qDebug()<<s.data()<<'\n'<<s.size();
     sendMessage(s);
-
-
-    // return QJsonDocument::fromJson("{'status':0}").object();
-    // return QJsonDocument::fromJson(receiveMessage()).object();
 }

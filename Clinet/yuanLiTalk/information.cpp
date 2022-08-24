@@ -62,7 +62,7 @@ void information::on_exit_clicked()
 
 void information::on_password_change_clicked()
 {
-    password_change *pw = new password_change(clinet);
+    password_change *pw = new password_change();
     connect(this, SIGNAL(toPWordChange(int)), pw, SLOT(RecStatus(int)));
     pw->show();
 }
