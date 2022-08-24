@@ -40,6 +40,7 @@ public:
   std::string get_result_string(int index);
   int get_result_int(int index);
   double get_result_double(int index);
+  long long get_result_long_long(int index);
 };
 
 class SQLTransaction {
@@ -127,6 +128,13 @@ double PreparedStatement::get_result_double(int index) {
     throw "db returned no data";
   }
   return sqlite3_column_double(stmt, index);
+}
+
+long long PreparedStatement::get_result_long_long(int index) {
+  if (last_exec_code != SQLITE_ROW) {
+    throw "db returned no data";
+  }
+  return sqlite3_column_int64(stmt, index);
 }
 
 SQLTransaction::SQLTransaction(const SQLiteDB& db) {
