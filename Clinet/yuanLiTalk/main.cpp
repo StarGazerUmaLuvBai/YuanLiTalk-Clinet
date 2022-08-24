@@ -11,6 +11,7 @@ QJsonObject remembered_user;
 QJsonArray friend_list;
 QJsonArray group_list;
 int current_uid;
+QString current_username;
 int main(int argc, char *argv[])
 {
 

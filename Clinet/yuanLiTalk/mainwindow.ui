@@ -90,7 +90,7 @@
              </item>
              <item>
               <widget class="QWidget" name="widget_4" native="true">
-               <widget class="QLabel" name="label_2">
+               <widget class="QLabel" name="label_uid">
                 <property name="geometry">
                  <rect>
                   <x>30</x>
@@ -103,7 +103,7 @@
                  <string>100000</string>
                 </property>
                </widget>
-               <widget class="QLabel" name="label">
+               <widget class="QLabel" name="label_username">
                 <property name="geometry">
                  <rect>
                   <x>30</x>
@@ -373,7 +373,7 @@
                 <property name="widgetResizable">
                  <bool>true</bool>
                 </property>
-                <widget class="QWidget" name="scrollAreaWidgetContents">
+                <widget class="QWidget" name="message_scroll">
                  <property name="geometry">
                   <rect>
                    <x>0</x>
@@ -453,8 +453,6 @@
                </widget>
               </item>
              </layout>
-             <zorder>textBrowser</zorder>
-             <zorder>textEdit</zorder>
              <zorder>widget_6</zorder>
              <zorder>textEdit</zorder>
              <zorder>Messages</zorder>

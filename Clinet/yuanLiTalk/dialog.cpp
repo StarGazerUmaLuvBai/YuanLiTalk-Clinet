@@ -10,6 +10,7 @@ extern QJsonObject remembered_user;
 extern QJsonArray friend_list;
 extern QJsonArray group_list;
 extern int current_uid;
+extern QString current_username;
 Dialog::Dialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::Dialog)
@@ -110,6 +111,7 @@ Dialog::Dialog(QWidget *parent) :
         qDebug()<<QJsonDocument(friend_list).toJson().data();
         qDebug()<<QJsonDocument(group_list).toJson().data();
         current_uid=uid;
+        current_username=response["username"].toString();
         this->hide();
         MainWindow * mw=new MainWindow;
         mw->show();
