@@ -254,6 +254,67 @@ MainWindow::MainWindow(QWidget *parent) :
         }
         ui->search_scroll->setLayout(l);
     });
+
+    connect(ui->search_group_key,QLineEdit::textChanged,[=](){
+        if(ui->search_group_key->text()==""){
+             ui->btn_group_search->setEnabled(false);
+        }
+        else{
+            ui->btn_group_search->setEnabled(true);
+        }
+    });
+    connect(ui->btn_group_search,QPushButton::clicked,[=](){
+        QJsonObject j;
+        j["operation"]="searchGroup";
+        j["uid"]=current_uid;
+        j["uuid"]=uuid;
+        j["token"]=token;
+        j["key"]=ui->search_group_key->text();
+        socket->YuanliTalkSend(j);
+    });
+
+    connect(socket,tcpnetwork::searchGroupResult,[=](const QJsonObject &resp){
+        if(resp["status"].toInt()!=YUANLITALK_SUCCESS){
+            QMessageBox::warning(this,"错误","系统错误");
+            return;
+        }
+        QJsonArray group_list=resp["list"].toArray();
+        qDebug()<<QJsonDocument( group_list).toJson()<<'\n';
+        QVBoxLayout *l=new QVBoxLayout;
+        l->setAlignment(Qt::AlignTop);
+        QPushButton *p;
+        for(QJsonValue item:group_list){
+            QJsonObject obj=item.toObject();
+            int gid=obj["gid"].toInt();
+            QString groupname=obj["groupname"].toString();
+
+            p=new QPushButton;
+            p->setText("加入 "+groupname+"("+QString::number(gid)+") 的群聊");
+            p->setMinimumHeight(50);
+            l->addWidget(p);
+
+            connect(p,QPushButton::clicked,[=](){
+                QJsonObject req;
+                req["operation"]="addGroup";
+                req["uid"]=current_uid;
+                req["token"]=token;
+                req["uuid"]=uuid;
+                req["addGid"]=gid;
+                socket->YuanliTalkSend(req);
+            });
+        }
+
+        if(ui->search_scroll_2->layout()){
+            QLayout *layout=ui->search_scroll_2->layout();
+            QLayoutItem *child;
+            while ((child = layout->takeAt(0)) != 0) {
+                delete child->widget();
+            }
+            delete ui->search_scroll_2->layout();
+        }
+        ui->search_scroll_2->setLayout(l);
+    });
+
 }
 
 MainWindow::~MainWindow()

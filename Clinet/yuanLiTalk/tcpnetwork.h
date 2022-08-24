@@ -32,6 +32,7 @@ signals:
     void getMessage(QJsonObject&);
     void getGroupMessage(QJsonObject&);
     void searchUserResult(QJsonObject&);
+    void searchGroupResult(QJsonObject&);
 };
 
 #endif // TCPNETWORK_H

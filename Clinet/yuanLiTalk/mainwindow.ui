@@ -169,7 +169,7 @@
                    <x>0</x>
                    <y>0</y>
                    <width>192</width>
-                   <height>387</height>
+                   <height>369</height>
                   </rect>
                  </property>
                 </widget>
@@ -211,7 +211,7 @@
                    <x>0</x>
                    <y>0</y>
                    <width>192</width>
-                   <height>387</height>
+                   <height>369</height>
                   </rect>
                  </property>
                 </widget>
@@ -306,16 +306,13 @@
                        <x>0</x>
                        <y>0</y>
                        <width>180</width>
-                       <height>324</height>
+                       <height>296</height>
                       </rect>
                      </property>
                     </widget>
                    </widget>
                   </item>
                  </layout>
-                 <zorder>search_friend_key</zorder>
-                 <zorder>scrollArea_3</zorder>
-                 <zorder>btn_search</zorder>
                  <zorder>scrollArea_3</zorder>
                  <zorder>widget_8</zorder>
                 </widget>
@@ -350,7 +347,7 @@
                        <x>0</x>
                        <y>0</y>
                        <width>180</width>
-                       <height>353</height>
+                       <height>330</height>
                       </rect>
                      </property>
                     </widget>
@@ -456,7 +453,7 @@
                        <x>0</x>
                        <y>0</y>
                        <width>180</width>
-                       <height>301</height>
+                       <height>268</height>
                       </rect>
                      </property>
                     </widget>
@@ -492,7 +489,7 @@
                        <x>0</x>
                        <y>0</y>
                        <width>180</width>
-                       <height>353</height>
+                       <height>330</height>
                       </rect>
                      </property>
                     </widget>
@@ -529,8 +526,8 @@
                   <rect>
                    <x>0</x>
                    <y>0</y>
-                   <width>451</width>
-                   <height>194</height>
+                   <width>434</width>
+                   <height>154</height>
                   </rect>
                  </property>
                 </widget>
@@ -626,7 +623,7 @@
      <x>0</x>
      <y>0</y>
      <width>731</width>
-     <height>23</height>
+     <height>26</height>
     </rect>
    </property>
   </widget>
