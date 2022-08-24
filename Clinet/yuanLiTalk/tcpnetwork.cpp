@@ -21,6 +21,9 @@ tcpnetwork::tcpnetwork(QObject *parent) : QObject(parent){
             else if(resp_signal=="getGroupMessage"){
                 emit getGroupMessage(response);
             }
+            else if(resp_signal=="searchUserResult"){
+                emit searchUserResult(response);
+            }
         }
         qDebug()<<a.data();
     });

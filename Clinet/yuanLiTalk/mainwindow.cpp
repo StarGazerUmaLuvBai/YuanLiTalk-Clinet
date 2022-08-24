@@ -10,6 +10,7 @@
 #include <QScrollBar>
 #include <QLayoutItem>
 #include "filestorage.h"
+#include "all.h"
 extern tcpnetwork *socket;
 extern QString token;
 extern QString uuid;
@@ -34,7 +35,6 @@ MainWindow::MainWindow(QWidget *parent) :
     QPushButton *p;
     l->setAlignment(Qt::AlignTop);
     for(QJsonValue item:friend_list){
-
         p=new QPushButton;
         qDebug()<<QJsonDocument(item.toObject()).toJson();
         p->setText(item.toObject()["username"].toString());
@@ -139,7 +139,6 @@ MainWindow::MainWindow(QWidget *parent) :
             QPushButton *q=new QPushButton;
             q->setText(QString::number(resp["senderUid"].toInt())+":"+resp["message"].toString());
             ui->message_scroll->layout()->addWidget(q);
-
         }
     });
 
@@ -194,6 +193,66 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->Messages->verticalScrollBar(),QScrollBar::rangeChanged,[=](){
         int nTotalValue = ui->Messages->verticalScrollBar()->maximum();
         ui->Messages->verticalScrollBar()->setValue(nTotalValue);
+    });
+
+    connect(ui->search_friend_key,QLineEdit::textChanged,[=](){
+        if(ui->search_friend_key->text()==""){
+             ui->btn_search->setEnabled(false);
+        }
+        else{
+            ui->btn_search->setEnabled(true);
+        }
+    });
+    connect(ui->btn_search,QPushButton::clicked,[=](){
+        QJsonObject j;
+        j["operation"]="searchUser";
+        j["uid"]=current_uid;
+        j["uuid"]=uuid;
+        j["token"]=token;
+        j["key"]=ui->search_friend_key->text();
+        socket->YuanliTalkSend(j);
+    });
+
+    connect(socket,tcpnetwork::searchUserResult,[=](const QJsonObject &resp){
+        if(resp["status"].toInt()!=YUANLITALK_SUCCESS){
+            QMessageBox::warning(this,"错误","系统错误");
+            return;
+        }
+        QJsonArray user_list=resp["list"].toArray();
+        qDebug()<<QJsonDocument( user_list).toJson()<<'\n';
+        QVBoxLayout *l=new QVBoxLayout;
+        l->setAlignment(Qt::AlignTop);
+        QPushButton *p;
+        for(QJsonValue item:user_list){
+            QJsonObject obj=item.toObject();
+            int uid=obj["uid"].toInt();
+            QString username=obj["username"].toString();
+
+            p=new QPushButton;
+            p->setText("添加 "+username+"("+QString::number(uid)+") 为好友");
+            p->setMinimumHeight(50);
+            l->addWidget(p);
+
+            connect(p,QPushButton::clicked,[=](){
+                QJsonObject req;
+                req["operation"]="addUser";
+                req["uid"]=current_uid;
+                req["token"]=token;
+                req["uuid"]=uuid;
+                req["addUid"]=uid;
+                socket->YuanliTalkSend(req);
+            });
+        }
+
+        if(ui->search_scroll->layout()){
+            QLayout *layout=ui->search_scroll->layout();
+            QLayoutItem *child;
+            while ((child = layout->takeAt(0)) != 0) {
+                delete child->widget();
+            }
+            delete ui->search_scroll->layout();
+        }
+        ui->search_scroll->setLayout(l);
     });
 }
 
